@@ -10,9 +10,11 @@ pub fn render(ui: &mut egui::Ui, state: &mut AppState) {
             ui.label("Replace:");
             ui.text_edit_singleline(&mut state.find_replace);
             if ui.button("Replace").clicked() {
-                if let Some(tab) = state.active_tab_mut() {
-                    if !state.find_query.is_empty() {
-                        tab.content = tab.content.replace(&state.find_query, &state.find_replace);
+                let fq = state.find_query.clone();
+                let fr = state.find_replace.clone();
+                if !fq.is_empty() {
+                    if let Some(tab) = state.active_tab_mut() {
+                        tab.content = tab.content.replace(&fq, &fr);
                         tab.modified = tab.content != tab.saved_content;
                         tab.save_status = if tab.modified {
                             SaveStatus::Modified
@@ -47,7 +49,7 @@ pub fn render(ui: &mut egui::Ui, state: &mut AppState) {
     let tab = &mut state.tabs[idx];
     let before = tab.content.clone();
     let font = egui::FontId::monospace(14.0);
-    let mut edit = egui::TextEdit::multiline(&mut tab.content)
+    let edit = egui::TextEdit::multiline(&mut tab.content)
         .font(font)
         .desired_width(f32::INFINITY)
         .lock_focus(true);

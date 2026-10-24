@@ -1,5 +1,5 @@
 // Copyright (C) 2026 Fluxenite. Licensed under GPL-3.0-only.
-use crate::error::{NoteCraftError, Result};
+use crate::error::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -3,7 +3,6 @@ use crate::app::AppState;
 use crate::vault::operations::*;
 use crate::vault::tree::{populate_children, FileNode};
 use eframe::egui;
-use std::path::PathBuf;
 
 pub fn render(ui: &mut egui::Ui, state: &mut AppState) {
     ui.heading("Files");

@@ -2,10 +2,6 @@
 use crate::commands::Command;
 use crate::config::{load_settings, save_settings, Settings};
 use crate::error::Result;
-use crate::keyboard::*;
-use crate::markdown::frontmatter::{parse_frontmatter, reconstruct, ParsedDocument};
-use crate::markdown::renderer::render_markdown;
-use crate::markdown::tags::{extract_inline_tags, merge_tags};
 use crate::search::index::{SearchIndex, SearchResult};
 use crate::vault::operations::*;
 use crate::vault::safe_write::{atomic_write, file_meta, FileMeta};
