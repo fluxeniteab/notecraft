@@ -51,4 +51,3 @@ pub fn build(state: &State<AppState>, _scope: &str, _filters: &serde_json::Value
 
     Ok(GraphData { nodes, edges })
 }
-PY
