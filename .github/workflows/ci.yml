@@ -10,17 +10,30 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
-      - name: Format check
+      - name: Install frontend deps
+        run: npm ci
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Frontend build
+        run: npm run build
+      - name: Rust format check
+        working-directory: src-tauri
         run: cargo fmt --all -- --check
-      - name: Check
+      - name: Rust check
+        working-directory: src-tauri
         run: cargo check --all-targets
-      - name: Tests
+      - name: Rust tests
+        working-directory: src-tauri
         run: cargo test --all-targets
-      - name: Clippy
+      - name: Rust clippy
+        working-directory: src-tauri
         run: cargo clippy --all-targets -- -D warnings
-      - name: Release build
-        run: cargo build --release
+      - name: Tauri build
+        run: npm run tauri build
