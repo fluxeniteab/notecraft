@@ -28,9 +28,11 @@ fn flush_paragraph(
     };
     let mut job = egui::text::LayoutJob::default();
     for (t, st) in spans.drain(..) {
-        let mut fmt = egui::TextFormat::default();
-        fmt.font_id = FontId::proportional(font_size);
-        fmt.color = egui::Color32::from_rgb(220, 225, 235);
+        let mut fmt = egui::TextFormat {
+            font_id: FontId::proportional(font_size),
+            color: egui::Color32::from_rgb(220, 225, 235),
+            ..Default::default()
+        };
         if st.code {
             fmt.font_id = FontId::monospace(font_size - 1.0);
             fmt.background = egui::Color32::from_rgb(40, 42, 50);

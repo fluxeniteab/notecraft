@@ -16,6 +16,12 @@ pub struct SearchIndex {
     pub docs: Vec<(PathBuf, String)>,
 }
 
+impl Default for SearchIndex {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SearchIndex {
     pub fn new() -> Self {
         Self {
@@ -67,7 +73,7 @@ impl SearchIndex {
                 });
             }
         }
-        results.sort_by(|a, b| b.score.cmp(&a.score));
+        results.sort_by_key(|r| std::cmp::Reverse(r.score));
         results
     }
 

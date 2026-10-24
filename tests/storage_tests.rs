@@ -14,7 +14,7 @@ fn storage_roundtrip() {
 
 #[test]
 fn settings_malformed_recovery() {
-    use notecraft::config::{load_settings, settings_path};
+    use notecraft::config::load_settings;
     // load_settings returns default on missing; just call
     let _ = load_settings();
 }

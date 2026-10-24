@@ -133,6 +133,12 @@ pub enum CreateKind {
     Folder,
 }
 
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AppState {
     pub fn new() -> Self {
         let settings = load_settings();
