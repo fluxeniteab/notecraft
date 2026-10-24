@@ -13,12 +13,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
       - name: Install frontend deps
-        run: npm ci
+        run: npm install
       - name: Type check
         run: npx tsc --noEmit
       - name: Frontend build
