@@ -91,7 +91,10 @@ pub fn extract_links(body: &str) -> Vec<LinkRef> {
         for cap in wiki_re.captures_iter(line) {
             let inner = cap.get(1).unwrap().as_str().trim();
             let (target_part, alias) = if let Some(pos) = inner.find('|') {
-                (inner[..pos].trim(), Some(inner[pos + 1..].trim().to_string()))
+                (
+                    inner[..pos].trim(),
+                    Some(inner[pos + 1..].trim().to_string()),
+                )
             } else {
                 (inner, None)
             };
@@ -112,7 +115,10 @@ pub fn extract_links(body: &str) -> Vec<LinkRef> {
         for cap in md_re.captures_iter(line) {
             let text = cap.get(1).unwrap().as_str().to_string();
             let url = cap.get(2).unwrap().as_str().trim().to_string();
-            if url.starts_with("http://") || url.starts_with("https://") || url.starts_with("mailto:") {
+            if url.starts_with("http://")
+                || url.starts_with("https://")
+                || url.starts_with("mailto:")
+            {
                 continue;
             }
             out.push(LinkRef {
@@ -134,7 +140,11 @@ fn parse_wiki_target(s: &str) -> (String, Option<String>, Option<String>) {
         let (t, rest) = s.split_at(pos);
         let rest = &rest[1..];
         if rest.starts_with('^') {
-            (t.trim().to_string(), None, Some(rest[1..].trim().to_string()))
+            (
+                t.trim().to_string(),
+                None,
+                Some(rest[1..].trim().to_string()),
+            )
         } else {
             (t.trim().to_string(), Some(rest.trim().to_string()), None)
         }
@@ -184,8 +194,16 @@ pub fn extract_outline(body: &str) -> Vec<OutlineItem> {
             // rebuild text
             let text = trimmed.trim_start_matches('#').trim().to_string();
             if !text.is_empty() && level <= 6 {
-                let id = text.to_lowercase().replace(' ', "-").replace(|c: char| !c.is_alphanumeric() && c != '-', "");
-                out.push(OutlineItem { level, text, line: i + 1, id });
+                let id = text
+                    .to_lowercase()
+                    .replace(' ', "-")
+                    .replace(|c: char| !c.is_alphanumeric() && c != '-', "");
+                out.push(OutlineItem {
+                    level,
+                    text,
+                    line: i + 1,
+                    id,
+                });
             }
         }
     }
@@ -200,7 +218,12 @@ pub fn extract_tasks(body: &str) -> Vec<TaskRef> {
             let indent = cap.get(1).unwrap().as_str().len();
             let done = cap.get(2).unwrap().as_str().to_lowercase() == "x";
             let text = cap.get(3).unwrap().as_str().to_string();
-            out.push(TaskRef { line: i + 1, text, done, indent });
+            out.push(TaskRef {
+                line: i + 1,
+                text,
+                done,
+                indent,
+            });
         }
     }
     out

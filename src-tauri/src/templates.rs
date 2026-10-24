@@ -5,7 +5,10 @@ use std::path::PathBuf;
 use tauri::State;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TemplateInfo { pub path: String, pub name: String }
+pub struct TemplateInfo {
+    pub path: String,
+    pub name: String,
+}
 
 pub fn list(state: &State<AppState>) -> AppResult<Vec<TemplateInfo>> {
     let g = state.inner.lock();
@@ -20,7 +23,10 @@ pub fn list(state: &State<AppState>) -> AppResult<Vec<TemplateInfo>> {
                 for e in entries.flatten() {
                     let name = e.file_name().to_string_lossy().to_string();
                     if name.ends_with(".md") {
-                        out.push(TemplateInfo { path: format!("{}/{}", folder, name), name: name.trim_end_matches(".md").to_string() });
+                        out.push(TemplateInfo {
+                            path: format!("{}/{}", folder, name),
+                            name: name.trim_end_matches(".md").to_string(),
+                        });
                     }
                 }
             }
@@ -29,8 +35,15 @@ pub fn list(state: &State<AppState>) -> AppResult<Vec<TemplateInfo>> {
     Ok(out)
 }
 
-pub fn render(state: &State<AppState>, path: &str, vars: &std::collections::HashMap<String, String>) -> AppResult<String> {
-    let root = { let g = state.inner.lock(); g.vault_root.clone().ok_or(AppError::NoVault)? };
+pub fn render(
+    state: &State<AppState>,
+    path: &str,
+    vars: &std::collections::HashMap<String, String>,
+) -> AppResult<String> {
+    let root = {
+        let g = state.inner.lock();
+        g.vault_root.clone().ok_or(AppError::NoVault)?
+    };
     let content = crate::vault::read_file(&root, path)?;
     let now = chrono::Utc::now();
     let mut out = content;
@@ -42,6 +55,8 @@ pub fn render(state: &State<AppState>, path: &str, vars: &std::collections::Hash
     out = out.replace("{{date}}", &now.format("%Y-%m-%d").to_string());
     out = out.replace("{{time}}", &now.format("%H:%M").to_string());
     out = out.replace("{{datetime}}", &now.to_rfc3339());
-    for (k, v) in vars { out = out.replace(&format!("{{{{{}}}}}", k), v); }
+    for (k, v) in vars {
+        out = out.replace(&format!("{{{{{}}}}}", k), v);
+    }
     Ok(out)
 }

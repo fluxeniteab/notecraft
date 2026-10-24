@@ -6,13 +6,19 @@ use std::path::PathBuf;
 use tauri::State;
 
 #[derive(serde::Serialize)]
-pub struct IndexStatus { pub total: usize, pub indexed: usize, pub status: String }
+pub struct IndexStatus {
+    pub total: usize,
+    pub indexed: usize,
+    pub status: String,
+}
 
 // ---------- vault ----------
 #[tauri::command]
 pub fn open_vault(path: String, state: State<AppState>) -> AppResult<String> {
     let root = PathBuf::from(&path);
-    if !root.is_dir() { return Err(crate::error::AppError::Invalid("not a directory".into())); }
+    if !root.is_dir() {
+        return Err(crate::error::AppError::Invalid("not a directory".into()));
+    }
     let mut g = state.inner.lock();
     g.vault_root = Some(root.clone());
     // recent
@@ -49,13 +55,18 @@ pub fn close_vault(state: State<AppState>) -> AppResult<()> {
 #[tauri::command]
 pub fn get_vault_root(state: State<AppState>) -> AppResult<Option<String>> {
     let g = state.inner.lock();
-    Ok(g.vault_root.as_ref().map(|p| p.to_string_lossy().to_string()))
+    Ok(g.vault_root
+        .as_ref()
+        .map(|p| p.to_string_lossy().to_string()))
 }
 
 #[tauri::command]
 pub fn list_recent_vaults(state: State<AppState>) -> AppResult<Vec<String>> {
     let g = state.inner.lock();
-    Ok(g.recent_vaults.iter().map(|p| p.to_string_lossy().to_string()).collect())
+    Ok(g.recent_vaults
+        .iter()
+        .map(|p| p.to_string_lossy().to_string())
+        .collect())
 }
 
 fn persist_recent(v: &[PathBuf]) {
@@ -66,9 +77,14 @@ fn persist_recent(v: &[PathBuf]) {
 }
 
 fn with_root<F, R>(state: &State<AppState>, f: F) -> AppResult<R>
-where F: FnOnce(&PathBuf) -> AppResult<R> {
+where
+    F: FnOnce(&PathBuf) -> AppResult<R>,
+{
     let g = state.inner.lock();
-    let root = g.vault_root.clone().ok_or(crate::error::AppError::NoVault)?;
+    let root = g
+        .vault_root
+        .clone()
+        .ok_or(crate::error::AppError::NoVault)?;
     drop(g);
     f(&root)
 }
@@ -145,7 +161,11 @@ pub fn render_html(content: String) -> AppResult<String> {
 
 // ---------- search ----------
 #[tauri::command]
-pub fn search(query: String, filters: serde_json::Value, state: State<AppState>) -> AppResult<Vec<crate::search::SearchHit>> {
+pub fn search(
+    query: String,
+    filters: serde_json::Value,
+    state: State<AppState>,
+) -> AppResult<Vec<crate::search::SearchHit>> {
     crate::search::search(&state, &query, &filters)
 }
 
@@ -157,7 +177,11 @@ pub fn rebuild_index(state: State<AppState>) -> AppResult<()> {
 #[tauri::command]
 pub fn index_status(state: State<AppState>) -> AppResult<IndexStatus> {
     let (total, indexed, status) = crate::search::status(&state);
-    Ok(IndexStatus { total, indexed, status })
+    Ok(IndexStatus {
+        total,
+        indexed,
+        status,
+    })
 }
 
 // ---------- links ----------
@@ -181,7 +205,10 @@ pub fn backlinks(target: String, state: State<AppState>) -> AppResult<Vec<String
 }
 
 #[tauri::command]
-pub fn outgoing_links(source: String, state: State<AppState>) -> AppResult<Vec<crate::markdown::LinkRef>> {
+pub fn outgoing_links(
+    source: String,
+    state: State<AppState>,
+) -> AppResult<Vec<crate::markdown::LinkRef>> {
     let g = state.inner.lock();
     if let Some(conn) = g.db.as_ref() {
         crate::links::outgoing(conn, &source)
@@ -194,11 +221,17 @@ pub fn outgoing_links(source: String, state: State<AppState>) -> AppResult<Vec<c
 pub fn unresolved_links(state: State<AppState>) -> AppResult<Vec<String>> {
     let (root, excluded) = {
         let g = state.inner.lock();
-        let root = g.vault_root.clone().ok_or(crate::error::AppError::NoVault)?;
+        let root = g
+            .vault_root
+            .clone()
+            .ok_or(crate::error::AppError::NoVault)?;
         let excluded = g.settings.excluded_folders.clone();
         (root, excluded)
     };
-    let files: Vec<String> = crate::vault::walk_markdown(&root, &excluded).iter().map(|p| crate::vault::to_rel(&root, p)).collect();
+    let files: Vec<String> = crate::vault::walk_markdown(&root, &excluded)
+        .iter()
+        .map(|p| crate::vault::to_rel(&root, p))
+        .collect();
     let g = state.inner.lock();
     if let Some(conn) = g.db.as_ref() {
         crate::links::unresolved(conn, &files)
@@ -209,18 +242,29 @@ pub fn unresolved_links(state: State<AppState>) -> AppResult<Vec<String>> {
 
 // ---------- graph ----------
 #[tauri::command]
-pub fn graph_data(scope: String, filters: serde_json::Value, state: State<AppState>) -> AppResult<crate::graph::GraphData> {
+pub fn graph_data(
+    scope: String,
+    filters: serde_json::Value,
+    state: State<AppState>,
+) -> AppResult<crate::graph::GraphData> {
     crate::graph::build(&state, &scope, &filters)
 }
 
 // ---------- history ----------
 #[tauri::command]
-pub fn snapshot_now(rel: String, label: Option<String>, state: State<AppState>) -> AppResult<crate::history::Snapshot> {
+pub fn snapshot_now(
+    rel: String,
+    label: Option<String>,
+    state: State<AppState>,
+) -> AppResult<crate::history::Snapshot> {
     crate::history::snapshot_now(&state, &rel, label)
 }
 
 #[tauri::command]
-pub fn list_snapshots(rel: String, state: State<AppState>) -> AppResult<Vec<crate::history::Snapshot>> {
+pub fn list_snapshots(
+    rel: String,
+    state: State<AppState>,
+) -> AppResult<Vec<crate::history::Snapshot>> {
     crate::history::list(&state, &rel)
 }
 
@@ -241,7 +285,10 @@ pub fn diff_snapshots(a: String, b: String, state: State<AppState>) -> AppResult
 
 // ---------- tasks ----------
 #[tauri::command]
-pub fn list_tasks(rel: Option<String>, state: State<AppState>) -> AppResult<Vec<crate::tasks::TaskItem>> {
+pub fn list_tasks(
+    rel: Option<String>,
+    state: State<AppState>,
+) -> AppResult<Vec<crate::tasks::TaskItem>> {
     crate::tasks::list(&state, rel.as_deref())
 }
 
@@ -257,7 +304,11 @@ pub fn list_templates(state: State<AppState>) -> AppResult<Vec<crate::templates:
 }
 
 #[tauri::command]
-pub fn render_template(path: String, vars: std::collections::HashMap<String, String>, state: State<AppState>) -> AppResult<String> {
+pub fn render_template(
+    path: String,
+    vars: std::collections::HashMap<String, String>,
+    state: State<AppState>,
+) -> AppResult<String> {
     crate::templates::render(&state, &path, &vars)
 }
 
@@ -284,7 +335,12 @@ pub fn list_workspaces(state: State<AppState>) -> AppResult<Vec<crate::workspace
 }
 
 #[tauri::command]
-pub fn save_workspace(id: String, name: String, data: String, state: State<AppState>) -> AppResult<()> {
+pub fn save_workspace(
+    id: String,
+    name: String,
+    data: String,
+    state: State<AppState>,
+) -> AppResult<()> {
     crate::workspace::save(&state, &id, &name, &data)
 }
 
@@ -344,7 +400,11 @@ pub fn set_vault_password(password: String, state: State<AppState>) -> AppResult
 
 // ---------- import/export ----------
 #[tauri::command]
-pub fn import_vault(src: String, dest: String, state: State<AppState>) -> AppResult<crate::import_export::ImportReport> {
+pub fn import_vault(
+    src: String,
+    dest: String,
+    state: State<AppState>,
+) -> AppResult<crate::import_export::ImportReport> {
     crate::import_export::import_vault(&src, &dest)
 }
 

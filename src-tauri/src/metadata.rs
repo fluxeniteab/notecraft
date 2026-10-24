@@ -38,8 +38,12 @@ pub fn set_kv(conn: &Connection, key: &str, value: &str) -> AppResult<()> {
 }
 
 pub fn get_kv(conn: &Connection, key: &str) -> Option<String> {
-    conn.query_row("SELECT value FROM kv WHERE key=?1", rusqlite::params![key], |r| r.get(0))
-        .ok()
+    conn.query_row(
+        "SELECT value FROM kv WHERE key=?1",
+        rusqlite::params![key],
+        |r| r.get(0),
+    )
+    .ok()
 }
 
 #[cfg(test)]

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
-    pub theme: String,            // "system" | "light" | "dark"
+    pub theme: String, // "system" | "light" | "dark"
     pub accent: String,
     pub editor_font_size: u32,
     pub editor_line_height: f32,

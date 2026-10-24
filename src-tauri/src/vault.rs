@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileEntry {
-    pub path: String,        // vault-relative posix
+    pub path: String, // vault-relative posix
     pub name: String,
     pub is_dir: bool,
     pub size: u64,
@@ -52,7 +52,12 @@ pub fn ensure_excluded(name: &str, excluded: &[String]) -> bool {
     excluded.iter().any(|e| e == name)
 }
 
-pub fn list_dir(root: &Path, rel: &str, excluded: &[String], show_hidden: bool) -> AppResult<Vec<FileEntry>> {
+pub fn list_dir(
+    root: &Path,
+    rel: &str,
+    excluded: &[String],
+    show_hidden: bool,
+) -> AppResult<Vec<FileEntry>> {
     let dir = join_safe(root, rel)?;
     if !dir.exists() {
         return Ok(vec![]);
@@ -89,7 +94,9 @@ pub fn list_dir(root: &Path, rel: &str, excluded: &[String], show_hidden: bool) 
     }
     out.sort_by(|a, b| {
         // dirs first, then name
-        b.is_dir.cmp(&a.is_dir).then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+        b.is_dir
+            .cmp(&a.is_dir)
+            .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
     });
     Ok(out)
 }
@@ -134,7 +141,11 @@ pub fn delete_path(root: &Path, rel: &str, trash: bool) -> AppResult<()> {
         let name = p.file_name().unwrap_or_default();
         let dest = trash_dir.join(name);
         let dest = if dest.exists() {
-            trash_dir.join(format!("{}_{}", chrono::Utc::now().timestamp_millis(), name.to_string_lossy()))
+            trash_dir.join(format!(
+                "{}_{}",
+                chrono::Utc::now().timestamp_millis(),
+                name.to_string_lossy()
+            ))
         } else {
             dest
         };
@@ -167,11 +178,17 @@ pub fn rename_path(root: &Path, from: &str, to: &str) -> AppResult<()> {
 
 pub fn move_path(root: &Path, from: &str, to_dir: &str) -> AppResult<String> {
     let a = join_safe(root, from)?;
-    let name = a.file_name().ok_or_else(|| AppError::Invalid("no name".into()))?;
+    let name = a
+        .file_name()
+        .ok_or_else(|| AppError::Invalid("no name".into()))?;
     let dest_rel = if to_dir.is_empty() {
         name.to_string_lossy().to_string()
     } else {
-        format!("{}/{}", to_dir.trim_end_matches('/'), name.to_string_lossy())
+        format!(
+            "{}/{}",
+            to_dir.trim_end_matches('/'),
+            name.to_string_lossy()
+        )
     };
     rename_path(root, from, &dest_rel)?;
     Ok(dest_rel)
@@ -219,7 +236,11 @@ pub fn walk_markdown(root: &Path, excluded: &[String]) -> Vec<PathBuf> {
     }) {
         if let Ok(e) = entry {
             if e.file_type().is_file() {
-                let ext = e.path().extension().map(|x| x.to_string_lossy().to_lowercase()).unwrap_or_default();
+                let ext = e
+                    .path()
+                    .extension()
+                    .map(|x| x.to_string_lossy().to_lowercase())
+                    .unwrap_or_default();
                 if ext == "md" || ext == "markdown" {
                     out.push(e.into_path());
                 }
