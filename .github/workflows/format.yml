@@ -15,15 +15,13 @@ jobs:
           components: rustfmt
       - name: Format
         run: cargo fmt --all
-      - name: Commit
+      - name: Generate patch
         shell: bash
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "No changes"
-          else
-            git commit -m "Apply cargo fmt"
-            git push
-          fi
+          git diff > format.patch
+          ls -l format.patch
+      - name: Upload patch
+        uses: actions/upload-artifact@v4
+        with:
+          name: format-patch
+          path: format.patch
