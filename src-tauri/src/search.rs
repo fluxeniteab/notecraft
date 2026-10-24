@@ -1,4 +1,5 @@
 use crate::error::AppError;
+use crate::error::AppResult;
 use crate::state::AppState;
 use crate::vault;
 use serde::{Deserialize, Serialize};
@@ -117,12 +118,12 @@ pub fn search(
             .map_err(|e| AppError::Tantivy(e.to_string()))?;
         let path = doc
             .get_first(path_f)
-            .and_then(|v| v.as_str())
+            .and_then(|v| v.as_text())
             .unwrap_or("")
             .to_string();
         let title = doc
             .get_first(title_f)
-            .and_then(|v| v.as_str())
+            .and_then(|v| v.as_text())
             .unwrap_or("")
             .to_string();
         let score = 1.0f32;
@@ -135,7 +136,7 @@ pub fn search(
         }
         if let Some(tag) = filters.get("tag").and_then(|v| v.as_str()) {
             if !tag.is_empty() {
-                let tags_val = doc.get_first(tags_f).and_then(|v| v.as_str()).unwrap_or("");
+                let tags_val = doc.get_first(tags_f).and_then(|v| v.as_text()).unwrap_or("");
                 if !tags_val.contains(tag) {
                     continue;
                 }

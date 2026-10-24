@@ -66,14 +66,11 @@ pub fn parse_frontmatter(content: &str) -> (Frontmatter, String) {
         };
         fm.raw = yaml_str.clone();
         if let Ok(v) = serde_yaml::from_str::<Value>(&yaml_str) {
-            if let Some(map) = v.as_mapping() {
+            if let Some(map) = v.as_object() {
                 for (k, val) in map {
-                    if let Some(ks) = k.as_str() {
-                        fm.data.insert(ks.to_string(), val.clone());
-                    }
+                    fm.data.insert(k.clone(), val.clone());
                 }
             } else if v != Value::Null {
-                // store whole as _root
                 fm.data.insert("_root".into(), v);
             }
         }
@@ -164,7 +161,7 @@ pub fn extract_tags(body: &str, fm: &Frontmatter) -> Vec<String> {
     if let Some(v) = fm.data.get("tags") {
         match v {
             Value::String(s) => tags.push(s.clone()),
-            Value::Sequence(seq) => {
+            Value::Array(seq) => {
                 for item in seq {
                     if let Some(s) = item.as_str() {
                         tags.push(s.to_string());

@@ -1,4 +1,5 @@
 use crate::error::AppError;
+use crate::error::AppResult;
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

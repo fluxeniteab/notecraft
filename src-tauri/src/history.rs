@@ -1,4 +1,5 @@
 use crate::error::AppError;
+use crate::error::AppResult;
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -158,14 +159,14 @@ fn cleanup(state: &State<AppState>, rel: &str) {
     };
     let g = state.inner.lock();
     if let Some(conn) = g.db.as_ref() {
-        let ids: Vec<String> = (|| {
+        let ids: Vec<String> = (|| -> Option<Vec<String>> {
             let mut stmt = conn
                 .prepare("SELECT id FROM snapshots WHERE note_path=?1 ORDER BY created_at DESC")
                 .ok()?;
             let rows = stmt
                 .query_map(rusqlite::params![rel], |r| r.get::<_, String>(0))
                 .ok()?;
-            rows.filter_map(|r| r.ok()).collect::<Vec<_>>()
+            Some(rows.filter_map(|r| r.ok()).collect::<Vec<_>>())
         })()
         .unwrap_or_default();
         if ids.len() > retention as usize {

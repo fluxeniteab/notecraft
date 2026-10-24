@@ -1,3 +1,4 @@
+use crate::error::AppResult;
 use serde::Serialize;
 use std::fmt;
 

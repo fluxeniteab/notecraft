@@ -1,4 +1,5 @@
 use crate::error::AppError;
+use crate::error::AppResult;
 use crate::state::AppState;
 use chacha20poly1305::{
     aead::{Aead, KeyInit},
