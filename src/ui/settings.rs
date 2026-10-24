@@ -4,8 +4,9 @@ use crate::config::save_settings;
 use eframe::egui;
 
 pub fn render(ctx: &egui::Context, state: &mut AppState) {
+    let mut show = state.show_settings;
     egui::Window::new("Settings")
-        .open(&mut state.show_settings)
+        .open(&mut show)
         .show(ctx, |ui| {
             ui.label("Autosave debounce (ms):");
             ui.add(egui::Slider::new(
@@ -22,4 +23,5 @@ pub fn render(ctx: &egui::Context, state: &mut AppState) {
                 state.show_settings = false;
             }
         });
+    state.show_settings = show;
 }

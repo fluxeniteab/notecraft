@@ -3,8 +3,9 @@ use crate::app::AppState;
 use eframe::egui;
 
 pub fn render(ctx: &egui::Context, state: &mut AppState) {
+    let mut show = state.show_search;
     egui::Window::new("Search vault")
-        .open(&mut state.show_search)
+        .open(&mut show)
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.text_edit_singleline(&mut state.search_query);
@@ -29,4 +30,5 @@ pub fn render(ctx: &egui::Context, state: &mut AppState) {
                 }
             });
         });
+    state.show_search = show;
 }

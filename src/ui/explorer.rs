@@ -27,9 +27,11 @@ pub fn render(ui: &mut egui::Ui, state: &mut AppState) {
         ui.label("Open a vault to see files.");
         return;
     }
-    if let Some(tree) = &mut state.tree {
-        render_node(ui, state, tree, 0);
+    let mut tree = state.tree.take();
+    if let Some(t) = tree.as_mut() {
+        render_node(ui, state, t, 0);
     }
+    state.tree = tree;
     // templates button
     ui.separator();
     if ui.button("Templates").clicked() {
@@ -68,22 +70,6 @@ fn render_node(ui: &mut egui::Ui, state: &mut AppState, node: &mut FileNode, dep
         if node.expanded {
             // clone children indices to avoid borrow issues? We mutate state inside loop, but node borrow.
             // We'll iterate by index.
-            let n = node.children.len();
-            for i in 0..n {
-                // need mutable access to child; do recursively with unsafe? Use index access.
-                // We'll call a helper that takes &mut FileNode child.
-                // Since node is &mut, we can get child mut.
-                // But state also mut; okay separate.
-                // Recursion:
-                // We'll implement iterative via function with path? Simpler: recursive function takes &mut FileNode.
-                // Already have node mutable; get child mut.
-                // But loop borrow checker: node.children[i] borrow ends each iteration.
-                // Call render_node on &mut node.children[i]
-                // However node is already mutably borrowed for outer; nested mutable borrow of child is okay if not using node else.
-                // We'll do:
-            }
-            // Because of borrow complexity, restructure: collect child paths first?
-            // Let's just recurse by mutable index using a separate function that accepts &mut FileNode.
             for i in 0..node.children.len() {
                 let child = &mut node.children[i];
                 render_node(ui, state, child, depth + 1);

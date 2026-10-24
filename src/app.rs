@@ -192,11 +192,11 @@ impl AppState {
         self.search_index.rebuild(&canon);
         self.refresh_templates();
         // watcher
-        if let Ok(w) = VaultWatcher::new(&canon) {
-            self.watcher_rx = Some(w.rx);
+        if let Ok(mut w) = VaultWatcher::new(&canon) {
+            self.watcher_rx = w.rx.take();
             self.watcher = Some(w);
         }
-        self.settings.last_vault = Some(path);
+        self.settings.last_vault = Some(path.clone());
         let _ = save_settings(&self.settings);
         self.status_message = format!("Opened vault: {}", path.display());
         Ok(())
@@ -509,7 +509,7 @@ impl AppState {
     }
 
     pub fn reload_external(&mut self, path: &Path) {
-        if let Some(idx) = self.tabs.iter().position(|t| t.path.as_ref() == Some(path)) {
+        if let Some(idx) = self.tabs.iter().position(|t| t.path.as_deref() == Some(path)) {
             let content = read_file_strict(path).unwrap_or_default();
             let meta = file_meta(path).ok();
             let tab = &mut self.tabs[idx];

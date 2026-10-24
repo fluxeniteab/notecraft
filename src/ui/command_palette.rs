@@ -5,8 +5,9 @@ use crate::commands::Command;
 use eframe::egui;
 
 pub fn render(ctx: &egui::Context, state: &mut AppState) {
+    let mut show = state.show_command_palette;
     egui::Window::new("Command Palette")
-        .open(&mut state.show_command_palette)
+        .open(&mut show)
         .show(ctx, |ui| {
             ui.text_edit_singleline(&mut state.command_filter);
             let filter = state.command_filter.to_lowercase();
@@ -35,4 +36,5 @@ pub fn render(ctx: &egui::Context, state: &mut AppState) {
                 }
             }
         });
+    state.show_command_palette = show;
 }

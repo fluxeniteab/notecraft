@@ -32,9 +32,8 @@ pub fn parse_frontmatter(input: &str) -> ParsedDocument {
         };
     }
     // find closing ---
-    let rest = &input[3..];
+    let _rest = &input[3..];
     // skip first newline
-    let rest = rest.trim_start_matches('\n').trim_start_matches('\r');
     // Actually handle: content after first --- line
     // Re-evaluate robustly:
     let lines: Vec<&str> = input.lines().collect();

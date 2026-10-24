@@ -5,7 +5,7 @@ use std::sync::mpsc;
 
 pub struct VaultWatcher {
     _watcher: RecommendedWatcher,
-    pub rx: mpsc::Receiver<notify::Result<notify::Event>>,
+    pub rx: Option<mpsc::Receiver<notify::Result<notify::Event>>>,
 }
 
 impl VaultWatcher {
@@ -23,7 +23,7 @@ impl VaultWatcher {
             .map_err(|e| crate::error::NoteCraftError::Other(e.to_string()))?;
         Ok(Self {
             _watcher: watcher,
-            rx,
+            rx: Some(rx),
         })
     }
 }

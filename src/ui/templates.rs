@@ -3,8 +3,9 @@ use crate::app::AppState;
 use eframe::egui;
 
 pub fn render(ctx: &egui::Context, state: &mut AppState) {
+    let mut show = state.show_templates;
     egui::Window::new("Templates")
-        .open(&mut state.show_templates)
+        .open(&mut show)
         .show(ctx, |ui| {
             state.refresh_templates();
             for t in state.templates.clone() {
@@ -29,4 +30,5 @@ pub fn render(ctx: &egui::Context, state: &mut AppState) {
                 }
             }
         });
+    state.show_templates = show;
 }

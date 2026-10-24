@@ -51,9 +51,6 @@ pub fn render(ui: &mut egui::Ui, state: &mut AppState) {
         .font(font)
         .desired_width(f32::INFINITY)
         .lock_focus(true);
-    if state.settings.show_line_numbers {
-        edit = edit.numbered_lines();
-    }
     let resp = ui.add_sized(ui.available_size(), edit);
     if resp.changed() {
         tab.modified = tab.content != tab.saved_content;
