@@ -5,3 +5,7 @@ src-tauri/gen/
 *.log
 .DS_Store
 Thumbs.db
+.env
+.env.local
+*.tmp
+coverage/

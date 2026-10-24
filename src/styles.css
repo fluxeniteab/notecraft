@@ -1,10 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+  --nc-bg: #f7f7f9;
+  --nc-bg-elev: #ffffff;
+  --nc-bg-muted: #ececef;
+  --nc-fg: #1a1b1f;
+  --nc-fg-muted: #6b6f7a;
+  --nc-border: #e2e3e8;
+  --nc-accent: #7c3aed;
+  --nc-accent-fg: #ffffff;
+  --nc-danger: #dc2626;
+  --nc-success: #16a34a;
+  --nc-font-ui: Inter, system-ui, sans-serif;
+  --nc-font-editor: "JetBrains Mono", ui-monospace, monospace;
+  --nc-radius: 8px;
 }
 
-body {
-  margin: 0;
-  font-family: Inter, system-ui, sans-serif;
-  background: #0f1117;
-  color: #e6e8ee;
+.dark {
+  color-scheme: dark;
+  --nc-bg: #0f1117;
+  --nc-bg-elev: #171923;
+  --nc-bg-muted: #1f2130;
+  --nc-fg: #e6e8ee;
+  --nc-fg-muted: #9aa0ad;
+  --nc-border: #2a2d3a;
+  --nc-accent: #8b5cf6;
+  --nc-accent-fg: #ffffff;
+  --nc-danger: #f87171;
+  --nc-success: #4ade80;
 }
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { font-family: var(--nc-font-ui); background: var(--nc-bg); color: var(--nc-fg); }
+.nc-scroll { scrollbar-width: thin; scrollbar-color: var(--nc-border) transparent; }
+.nc-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.nc-scroll::-webkit-scrollbar-thumb { background: var(--nc-border); border-radius: 6px; }
+.cm-editor { height: 100%; }
+.cm-scroller { font-family: var(--nc-font-editor); }
+.reduced-motion * { transition: none !important; animation: none !important; }
+.high-contrast { --nc-border: #000; }

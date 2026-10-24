@@ -10,6 +10,9 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -17,11 +20,15 @@ jobs:
         with:
           components: rustfmt, clippy
       - name: Install frontend deps
-        run: npm install
+        run: bun install --frozen-lockfile
       - name: Type check
-        run: npx tsc --noEmit
+        run: bun run typecheck
+      - name: Frontend lint
+        run: bun run lint
+      - name: Frontend tests
+        run: bun run test
       - name: Frontend build
-        run: npm run build
+        run: bun run build
       - name: Rust format check
         working-directory: src-tauri
         run: cargo fmt --all -- --check
@@ -35,4 +42,4 @@ jobs:
         working-directory: src-tauri
         run: cargo clippy --all-targets -- -D warnings
       - name: Tauri build
-        run: npm run tauri build
+        run: bun run tauri build

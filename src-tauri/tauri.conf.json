@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "identifier": "com.fluxenite.notecraft",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "bun run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -14,14 +14,20 @@
       {
         "title": "NoteCraft",
         "width": 1280,
-        "height": 800
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; img-src 'self' asset: https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost"
     }
   },
   "bundle": {
-    "active": false
+    "active": false,    "targets": ["msi", "nsis"],
+    "icon": ["icons/icon.png", "icons/icon.ico"],
+    "category": "Productivity",
+    "shortDescription": "Local-first knowledge base",
+    "longDescription": "NoteCraft is an open-source, local-first knowledge management application."
   }
 }
