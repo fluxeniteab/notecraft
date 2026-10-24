@@ -509,7 +509,11 @@ impl AppState {
     }
 
     pub fn reload_external(&mut self, path: &Path) {
-        if let Some(idx) = self.tabs.iter().position(|t| t.path.as_deref() == Some(path)) {
+        if let Some(idx) = self
+            .tabs
+            .iter()
+            .position(|t| t.path.as_deref() == Some(path))
+        {
             let content = read_file_strict(path).unwrap_or_default();
             let meta = file_meta(path).ok();
             let tab = &mut self.tabs[idx];
