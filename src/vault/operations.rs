@@ -6,7 +6,9 @@ use std::path::{Path, PathBuf};
 pub fn canonicalize_vault(root: &Path) -> Result<PathBuf> {
     let c = root.canonicalize()?;
     if !c.is_dir() {
-        return Err(NoteCraftError::InvalidVault(c.to_string_lossy().to_string()));
+        return Err(NoteCraftError::InvalidVault(
+            c.to_string_lossy().to_string(),
+        ));
     }
     Ok(c)
 }
@@ -31,7 +33,9 @@ pub fn ensure_inside(root: &Path, target: &Path) -> Result<PathBuf> {
         canon_parent.join(target.file_name().unwrap_or_default())
     };
     if !candidate.starts_with(&canon_root) {
-        return Err(NoteCraftError::PathTraversal(target.to_string_lossy().to_string()));
+        return Err(NoteCraftError::PathTraversal(
+            target.to_string_lossy().to_string(),
+        ));
     }
     Ok(candidate)
 }
@@ -39,12 +43,16 @@ pub fn ensure_inside(root: &Path, target: &Path) -> Result<PathBuf> {
 pub fn create_note(root: &Path, dir: &Path, name: &str) -> Result<PathBuf> {
     let name = sanitize_name(name);
     let mut path = dir.join(&name);
-    if !name.to_ascii_lowercase().ends_with(".md") && !name.to_ascii_lowercase().ends_with(".markdown") {
+    if !name.to_ascii_lowercase().ends_with(".md")
+        && !name.to_ascii_lowercase().ends_with(".markdown")
+    {
         path = dir.join(format!("{}.md", name));
     }
     // collision detection
     if path.exists() {
-        return Err(NoteCraftError::Other("A file with that name already exists".to_string()));
+        return Err(NoteCraftError::Other(
+            "A file with that name already exists".to_string(),
+        ));
     }
     ensure_inside(root, &path)?;
     if let Some(parent) = path.parent() {
@@ -58,7 +66,9 @@ pub fn create_dir(root: &Path, parent: &Path, name: &str) -> Result<PathBuf> {
     let name = sanitize_name(name);
     let path = parent.join(&name);
     if path.exists() {
-        return Err(NoteCraftError::Other("A folder with that name already exists".to_string()));
+        return Err(NoteCraftError::Other(
+            "A folder with that name already exists".to_string(),
+        ));
     }
     ensure_inside(root, &path)?;
     fs::create_dir_all(&path)?;

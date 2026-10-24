@@ -14,7 +14,11 @@ pub fn render(ui: &mut egui::Ui, state: &mut AppState) {
                     if !state.find_query.is_empty() {
                         tab.content = tab.content.replace(&state.find_query, &state.find_replace);
                         tab.modified = tab.content != tab.saved_content;
-                        tab.save_status = if tab.modified { SaveStatus::Modified } else { SaveStatus::Saved };
+                        tab.save_status = if tab.modified {
+                            SaveStatus::Modified
+                        } else {
+                            SaveStatus::Saved
+                        };
                         tab.last_edit = Some(std::time::Instant::now());
                     }
                 }
@@ -53,7 +57,11 @@ pub fn render(ui: &mut egui::Ui, state: &mut AppState) {
     let resp = ui.add_sized(ui.available_size(), edit);
     if resp.changed() {
         tab.modified = tab.content != tab.saved_content;
-        tab.save_status = if tab.modified { SaveStatus::Modified } else { SaveStatus::Saved };
+        tab.save_status = if tab.modified {
+            SaveStatus::Modified
+        } else {
+            SaveStatus::Saved
+        };
         tab.last_edit = Some(std::time::Instant::now());
     }
     // update title if needed

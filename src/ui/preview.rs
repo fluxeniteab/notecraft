@@ -1,8 +1,8 @@
 // Copyright (C) 2026 Fluxenite. Licensed under GPL-3.0-only.
 use crate::app::AppState;
 use crate::markdown::frontmatter::parse_frontmatter;
-use crate::markdown::tags::extract_inline_tags;
 use crate::markdown::renderer::render_markdown;
+use crate::markdown::tags::extract_inline_tags;
 use eframe::egui;
 
 pub fn render(ui: &mut egui::Ui, state: &mut AppState) {

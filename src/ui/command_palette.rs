@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Fluxenite. Licensed under GPL-3.0-only.
 use crate::app::AppState;
-use crate::commands::Command;
 use crate::commands::command_label;
+use crate::commands::Command;
 use eframe::egui;
 
 pub fn render(ctx: &egui::Context, state: &mut AppState) {

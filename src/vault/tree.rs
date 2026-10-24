@@ -40,7 +40,9 @@ pub fn is_markdown(path: &Path) -> bool {
 
 pub fn build_tree(root: &Path) -> Result<FileNode> {
     if !root.is_dir() {
-        return Err(NoteCraftError::InvalidVault(root.to_string_lossy().to_string()));
+        return Err(NoteCraftError::InvalidVault(
+            root.to_string_lossy().to_string(),
+        ));
     }
     let mut node = FileNode::new(root.to_path_buf(), true);
     node.expanded = true;
@@ -53,9 +55,7 @@ pub fn populate_children(node: &mut FileNode) -> Result<()> {
         return Ok(());
     }
     node.children.clear();
-    let mut entries: Vec<_> = fs::read_dir(&node.path)?
-        .filter_map(|e| e.ok())
-        .collect();
+    let mut entries: Vec<_> = fs::read_dir(&node.path)?.filter_map(|e| e.ok()).collect();
     entries.sort_by_key(|e| e.file_name());
     // directories first
     entries.sort_by(|a, b| {

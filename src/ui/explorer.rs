@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Fluxenite. Licensed under GPL-3.0-only.
 use crate::app::AppState;
 use crate::vault::operations::*;
-use crate::vault::tree::{FileNode, populate_children};
+use crate::vault::tree::{populate_children, FileNode};
 use eframe::egui;
 use std::path::PathBuf;
 
@@ -66,7 +66,7 @@ fn render_node(ui: &mut egui::Ui, state: &mut AppState, node: &mut FileNode, dep
             }
         });
         if node.expanded {
-            // clone children indices to avoid borrow issues? We mutate state inside loop, but node borrow. 
+            // clone children indices to avoid borrow issues? We mutate state inside loop, but node borrow.
             // We'll iterate by index.
             let n = node.children.len();
             for i in 0..n {
@@ -82,7 +82,7 @@ fn render_node(ui: &mut egui::Ui, state: &mut AppState, node: &mut FileNode, dep
                 // However node is already mutably borrowed for outer; nested mutable borrow of child is okay if not using node else.
                 // We'll do:
             }
-            // Because of borrow complexity, restructure: collect child paths first? 
+            // Because of borrow complexity, restructure: collect child paths first?
             // Let's just recurse by mutable index using a separate function that accepts &mut FileNode.
             for i in 0..node.children.len() {
                 let child = &mut node.children[i];
@@ -92,7 +92,8 @@ fn render_node(ui: &mut egui::Ui, state: &mut AppState, node: &mut FileNode, dep
     } else {
         ui.horizontal(|ui| {
             ui.add_space(indent);
-            let label = if state.active_tab_ref().and_then(|t| t.path.as_ref()) == Some(&node.path) {
+            let label = if state.active_tab_ref().and_then(|t| t.path.as_ref()) == Some(&node.path)
+            {
                 format!("● {}", node.name)
             } else {
                 node.name.clone()
@@ -148,7 +149,10 @@ pub fn render_create_dialog(ctx: &egui::Context, state: &mut AppState) {
         ui.label("Name:");
         ui.text_edit_singleline(&mut state.new_name_input);
         if ui.button("Create").clicked() {
-            let parent = state.new_item_parent.clone().unwrap_or_else(|| state.vault_root.clone().unwrap_or_default());
+            let parent = state
+                .new_item_parent
+                .clone()
+                .unwrap_or_else(|| state.vault_root.clone().unwrap_or_default());
             let root = state.vault_canonical.clone().unwrap_or_default();
             match state.creating {
                 Some(crate::app::CreateKind::Note) => {

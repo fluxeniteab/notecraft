@@ -10,7 +10,12 @@ struct SpanStyle {
     strike: bool,
 }
 
-fn flush_paragraph(ui: &mut Ui, spans: &mut Vec<(String, SpanStyle)>, heading: Option<u8>, blockquote: bool) {
+fn flush_paragraph(
+    ui: &mut Ui,
+    spans: &mut Vec<(String, SpanStyle)>,
+    heading: Option<u8>,
+    blockquote: bool,
+) {
     if spans.is_empty() {
         return;
     }
@@ -47,7 +52,11 @@ fn flush_paragraph(ui: &mut Ui, spans: &mut Vec<(String, SpanStyle)>, heading: O
     if blockquote {
         ui.horizontal(|ui| {
             ui.add_space(12.0);
-            let _ = ui.label(RichText::new(job.text.clone()).italics().color(egui::Color32::from_rgb(180, 180, 200)));
+            let _ = ui.label(
+                RichText::new(job.text.clone())
+                    .italics()
+                    .color(egui::Color32::from_rgb(180, 180, 200)),
+            );
         });
     } else {
         ui.label(job);
@@ -101,7 +110,11 @@ pub fn render_markdown(ui: &mut Ui, text: &str) {
                 let code = code_buf.clone();
                 // render code block
                 egui::Frame::group(ui.style()).show(ui, |ui| {
-                    ui.label(RichText::new(code).monospace().color(egui::Color32::from_rgb(220, 220, 220)));
+                    ui.label(
+                        RichText::new(code)
+                            .monospace()
+                            .color(egui::Color32::from_rgb(220, 220, 220)),
+                    );
                 });
                 ui.add_space(6.0);
                 code_buf.clear();

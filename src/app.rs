@@ -1,16 +1,16 @@
 // Copyright (C) 2026 Fluxenite. Licensed under GPL-3.0-only.
+use crate::commands::Command;
 use crate::config::{load_settings, save_settings, Settings};
 use crate::error::Result;
+use crate::keyboard::*;
 use crate::markdown::frontmatter::{parse_frontmatter, reconstruct, ParsedDocument};
 use crate::markdown::renderer::render_markdown;
 use crate::markdown::tags::{extract_inline_tags, merge_tags};
 use crate::search::index::{SearchIndex, SearchResult};
 use crate::vault::operations::*;
 use crate::vault::safe_write::{atomic_write, file_meta, FileMeta};
-use crate::vault::tree::{build_tree, FileNode, is_markdown};
+use crate::vault::tree::{build_tree, is_markdown, FileNode};
 use crate::vault::watcher::VaultWatcher;
-use crate::commands::Command;
-use crate::keyboard::*;
 use eframe::egui;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
@@ -221,7 +221,11 @@ impl AppState {
 
     pub fn open_note(&mut self, path: PathBuf) {
         // if already open, focus
-        if let Some(idx) = self.tabs.iter().position(|t| t.path.as_ref() == Some(&path)) {
+        if let Some(idx) = self
+            .tabs
+            .iter()
+            .position(|t| t.path.as_ref() == Some(&path))
+        {
             self.active_tab = Some(idx);
             return;
         }
@@ -274,7 +278,8 @@ impl AppState {
                 tab.pending_save = false;
                 self.status_message = format!("Saved {}", path.display());
                 if let Some(root) = &self.vault_canonical {
-                    self.search_index.update_file(&path, &tab.saved_content.clone());
+                    self.search_index
+                        .update_file(&path, &tab.saved_content.clone());
                     let _ = root;
                 }
             }
@@ -335,7 +340,12 @@ impl AppState {
     }
 
     pub fn new_note_in(&mut self, dir: PathBuf) {
-        let path = create_note(self.vault_canonical.as_deref().unwrap_or(Path::new(".")), &dir, "Untitled").ok();
+        let path = create_note(
+            self.vault_canonical.as_deref().unwrap_or(Path::new(".")),
+            &dir,
+            "Untitled",
+        )
+        .ok();
         if let Some(p) = path {
             self.refresh_tree();
             self.open_note(p);
@@ -343,7 +353,11 @@ impl AppState {
     }
 
     pub fn new_folder_in(&mut self, parent: PathBuf) {
-        let _ = create_dir(self.vault_canonical.as_deref().unwrap_or(Path::new(".")), &parent, "New Folder");
+        let _ = create_dir(
+            self.vault_canonical.as_deref().unwrap_or(Path::new(".")),
+            &parent,
+            "New Folder",
+        );
         self.refresh_tree();
     }
 
@@ -390,8 +404,15 @@ impl AppState {
             .replace("{{date}}", &now)
             .replace("{{title}}", &title);
         // create note in vault root or active dir
-        let dir = self.vault_root.clone().unwrap_or_else(|| PathBuf::from("."));
-        if let Ok(path) = create_note(self.vault_canonical.as_deref().unwrap_or(Path::new(".")), &dir, "New from template") {
+        let dir = self
+            .vault_root
+            .clone()
+            .unwrap_or_else(|| PathBuf::from("."));
+        if let Ok(path) = create_note(
+            self.vault_canonical.as_deref().unwrap_or(Path::new(".")),
+            &dir,
+            "New from template",
+        ) {
             let _ = atomic_write(&path, &rendered, None);
             self.refresh_tree();
             self.open_note(path);
@@ -412,11 +433,17 @@ impl AppState {
     pub fn run_command(&mut self, cmd: Command) {
         match cmd {
             Command::NewNote => {
-                let dir = self.vault_root.clone().unwrap_or_else(|| PathBuf::from("."));
+                let dir = self
+                    .vault_root
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("."));
                 self.new_note_in(dir);
             }
             Command::NewFolder => {
-                let parent = self.vault_root.clone().unwrap_or_else(|| PathBuf::from("."));
+                let parent = self
+                    .vault_root
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("."));
                 self.new_folder_in(parent);
             }
             Command::Save => self.save_current(),
@@ -453,7 +480,12 @@ impl AppState {
             let should = {
                 let t = &self.tabs[idx];
                 t.is_dirty()
-                    && t.last_edit.map(|le| now.duration_since(le).as_millis() as u64 >= self.settings.autosave_debounce_ms).unwrap_or(false)
+                    && t.last_edit
+                        .map(|le| {
+                            now.duration_since(le).as_millis() as u64
+                                >= self.settings.autosave_debounce_ms
+                        })
+                        .unwrap_or(false)
                     && !t.pending_save
             };
             if should {
@@ -532,7 +564,7 @@ impl eframe::App for NoteCraftApp {
 
         // top-level layout
         crate::ui::layout::render(ctx, state);
-        // request repaint for animations? 
+        // request repaint for animations?
         ctx.request_repaint_after(Duration::from_millis(200));
     }
 }
@@ -581,5 +613,9 @@ pub fn main_entry() -> eframe::Result<()> {
             .with_title("NoteCraft"),
         ..Default::default()
     };
-    eframe::run_native("NoteCraft", options, Box::new(|cc| Ok(Box::new(NoteCraftApp::new(cc)))))
+    eframe::run_native(
+        "NoteCraft",
+        options,
+        Box::new(|cc| Ok(Box::new(NoteCraftApp::new(cc)))),
+    )
 }

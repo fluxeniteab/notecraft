@@ -5,7 +5,11 @@ use eframe::egui;
 pub fn render(ui: &mut egui::Ui, state: &mut AppState) {
     ui.horizontal_wrapped(|ui| {
         // mode switcher
-        for (label, mode) in [("Edit", crate::app::EditorMode::Edit), ("Split", crate::app::EditorMode::Split), ("Read", crate::app::EditorMode::Read)] {
+        for (label, mode) in [
+            ("Edit", crate::app::EditorMode::Edit),
+            ("Split", crate::app::EditorMode::Split),
+            ("Read", crate::app::EditorMode::Read),
+        ] {
             if ui.selectable_label(state.mode == mode, label).clicked() {
                 state.mode = mode;
             }
