@@ -27,7 +27,7 @@ export default function CanvasView({ open, onClose }: { open: boolean; onClose: 
   const save = async () => {
     try {
       await api.createDir("canvas");
-    } catch {}
+    } catch { /* ignore */ }
     await api.writeFile(CANVAS_PATH, JSON.stringify({ nodes, edges, version: 1 }, null, 2));
     alert("Canvas saved");
   };
