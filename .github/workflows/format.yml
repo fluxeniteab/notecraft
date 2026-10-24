@@ -1,0 +1,24 @@
+name: Format
+
+on:
+  workflow_dispatch:
+
+jobs:
+  format:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Format
+        run: cargo fmt --all
+      - name: Generate patch
+        shell: bash
+        run: |
+          git diff > format.patch
+      - name: Upload patch
+        uses: actions/upload-artifact@v4
+        with:
+          name: format-patch
+          path: format.patch
