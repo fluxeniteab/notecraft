@@ -136,7 +136,10 @@ pub fn search(
         }
         if let Some(tag) = filters.get("tag").and_then(|v| v.as_str()) {
             if !tag.is_empty() {
-                let tags_val = doc.get_first(tags_f).and_then(|v| v.as_text()).unwrap_or("");
+                let tags_val = doc
+                    .get_first(tags_f)
+                    .and_then(|v| v.as_text())
+                    .unwrap_or("");
                 if !tags_val.contains(tag) {
                     continue;
                 }
