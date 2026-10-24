@@ -29,6 +29,19 @@ jobs:
         run: bun run test
       - name: Frontend build
         run: bun run build
+      - name: Rust format
+        working-directory: src-tauri
+        run: cargo fmt --all
+      - name: Commit formatted Rust
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: apply rustfmt"
+            git push
+          fi
       - name: Rust format check
         working-directory: src-tauri
         run: cargo fmt --all -- --check
