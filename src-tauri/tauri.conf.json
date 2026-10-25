@@ -24,7 +24,7 @@
     }
   },
   "bundle": {
-    "active": false,    "targets": ["msi", "nsis"],
+    "active": true,    "targets": ["msi", "nsis"],
     "icon": ["icons/icon.png", "icons/icon.ico"],
     "category": "Productivity",
     "shortDescription": "Local-first knowledge base",

@@ -48,6 +48,7 @@
     "react-resizable-panels": "^2.1.4",
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.0",
+    "sharp": "^0.35.5",
     "sigma": "^3.0.0",
     "sonner": "^1.5.0",
     "tailwind-merge": "^2.5.4",
