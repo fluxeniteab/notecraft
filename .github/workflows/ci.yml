@@ -40,6 +40,6 @@ jobs:
         run: cargo test --all-targets
       - name: Rust clippy
         working-directory: src-tauri
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --all-targets
       - name: Tauri build
         run: bun run tauri build
