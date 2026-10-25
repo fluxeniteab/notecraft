@@ -72,4 +72,3 @@ pub fn set_done(state: &State<AppState>, rel: &str, line: i64, done: bool) -> Ap
     }
     Ok(())
 }
-PY
