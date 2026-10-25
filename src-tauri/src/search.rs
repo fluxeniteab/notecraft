@@ -116,16 +116,8 @@ pub fn search(
         let doc: tantivy::TantivyDocument = searcher
             .doc(doc_addr)
             .map_err(|e| AppError::Tantivy(e.to_string()))?;
-        let path = doc
-            .get_first(path_f)
-            .and_then(|v| v.as_text())
-            .unwrap_or("")
-            .to_string();
-        let title = doc
-            .get_first(title_f)
-            .and_then(|v| v.as_text())
-            .unwrap_or("")
-            .to_string();
+        let path = match doc.get_first(path_f) { Some(tantivy::schema::Value::Text(t)) => t, _ => "" }.to_string();
+        let title = match doc.get_first(title_f) { Some(tantivy::schema::Value::Text(t)) => t, _ => "" }.to_string();
         let score = 1.0f32;
         let snippet = snippet_gen.snippet_from_doc(&doc).to_html();
         // folder filter
@@ -136,10 +128,7 @@ pub fn search(
         }
         if let Some(tag) = filters.get("tag").and_then(|v| v.as_str()) {
             if !tag.is_empty() {
-                let tags_val = doc
-                    .get_first(tags_f)
-                    .and_then(|v| v.as_text())
-                    .unwrap_or("");
+                let tags_val = match doc.get_first(tags_f) { Some(tantivy::schema::Value::Text(t)) => t.as_str(), _ => "" };
                 if !tags_val.contains(tag) {
                     continue;
                 }

@@ -21,7 +21,7 @@ pub fn import_vault(src: &str, dest: &str) -> AppResult<ImportReport> {
     let mut imported = 0usize;
     let mut broken = Vec::new();
     for entry in walkdir::WalkDir::new(&src) {
-        let entry = entry.map_err(AppError::Io)?;
+        let entry = entry.map_err(|e| AppError::Other(e.to_string()))?;
         if !entry.file_type().is_file() {
             continue;
         }
@@ -72,7 +72,7 @@ pub fn backup(state: &State<AppState>, dest: &str) -> AppResult<()> {
     let opts = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated);
     for entry in walkdir::WalkDir::new(&root) {
-        let entry = entry.map_err(AppError::Io)?;
+        let entry = entry.map_err(|e| AppError::Other(e.to_string()))?;
         let rel = entry
             .path()
             .strip_prefix(&root)
