@@ -37,8 +37,8 @@ export default function CommandPalette({ open, onClose, onOpenSettings }: { open
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/40" onClick={onClose}>
-      <div className="w-[560px] max-w-[90vw] bg-bg-elev border border-border rounded-lg shadow-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/60 backdrop-blur-sm nc-anim-fade" onClick={onClose}>
+      <div className="w-[560px] max-w-[90vw] bg-bg-elev/95 backdrop-blur-md border border-border rounded-xl shadow-2xl overflow-hidden nc-anim-scale" onClick={(e) => e.stopPropagation()}>
         <Command className="w-full">
           <div className="flex items-center px-3 border-b border-border">
             <Command.Input autoFocus placeholder="Type a command or search notes…" className="w-full py-3 bg-transparent outline-none text-sm" />

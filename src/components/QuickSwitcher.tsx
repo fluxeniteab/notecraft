@@ -15,8 +15,8 @@ export default function QuickSwitcher() {
   if (!quickSwitcherOpen) return null;
   const filtered = files.filter((f) => f.toLowerCase().includes(q.toLowerCase()));
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/40" onClick={() => setQuickSwitcherOpen(false)}>
-      <div className="w-[480px] max-w-[90vw] bg-bg-elev border border-border rounded-lg shadow-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/60 backdrop-blur-sm nc-anim-fade" onClick={() => setQuickSwitcherOpen(false)}>
+      <div className="w-[480px] max-w-[90vw] bg-bg-elev/95 backdrop-blur-md border border-border rounded-xl shadow-2xl overflow-hidden nc-anim-scale" onClick={(e) => e.stopPropagation()}>
         <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Switch to note…" className="w-full px-3 py-3 bg-transparent outline-none text-sm border-b border-border" />
         <div className="max-h-80 overflow-auto nc-scroll p-1">
           {filtered.map((f) => (

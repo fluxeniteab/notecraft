@@ -19,9 +19,9 @@ export default function RightSidebar() {
   ];
   return (
     <div className="h-full flex flex-col bg-bg-elev">
-      <div className="flex border-b border-border">
+      <div className="flex border-b border-border bg-bg-elev/40">
         {tabs.map((t) => (
-          <button key={t.id} title={t.label} onClick={() => setTab(t.id)} className={`flex-1 flex items-center justify-center py-2 ${tab === t.id ? "text-accent border-b-2 border-accent" : "text-fg-muted hover:text-fg"}`}>
+          <button key={t.id} title={t.label} onClick={() => setTab(t.id)} className={`flex-1 flex items-center justify-center py-2.5 transition-colors duration-150 ${tab === t.id ? "text-accent bg-accent/10" : "text-fg-muted hover:text-fg hover:bg-bg-muted/50"}`}>
             {t.icon}
           </button>
         ))}

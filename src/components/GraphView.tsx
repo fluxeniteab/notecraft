@@ -36,7 +36,7 @@ export default function GraphView({ open, onClose }: { open: boolean; onClose: (
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 bg-bg/95 flex flex-col">
+    <div className="fixed inset-0 z-50 bg-bg/98 flex flex-col nc-anim-fade">
       <div className="flex items-center px-3 py-2 border-b border-border">
         <span className="font-semibold text-sm">Knowledge Graph</span>
         <div className="flex-1" />

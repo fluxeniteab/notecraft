@@ -22,8 +22,8 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
   const upd = (k: keyof Settings, v: any) => setDraft({ ...draft, [k]: v });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="w-[600px] max-w-[90vw] max-h-[80vh] overflow-auto nc-scroll bg-bg-elev border border-border rounded-lg shadow-xl p-4" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm nc-anim-fade" onClick={onClose}>
+      <div className="w-[600px] max-w-[90vw] max-h-[80vh] overflow-auto nc-scroll bg-bg-elev/95 backdrop-blur-md border border-border rounded-xl shadow-2xl p-5 nc-anim-scale" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center mb-3">
           <h2 className="font-semibold">Settings</h2>
           <div className="flex-1" />
