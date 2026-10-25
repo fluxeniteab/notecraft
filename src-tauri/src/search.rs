@@ -4,6 +4,7 @@ use crate::state::AppState;
 use crate::vault;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use tantivy::doc;
 use tauri::State;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
