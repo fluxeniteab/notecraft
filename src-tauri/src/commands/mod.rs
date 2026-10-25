@@ -370,6 +370,23 @@ pub fn run_automation_dry_run(id: String, state: State<AppState>) -> AppResult<s
     crate::automation::dry_run(&state, &id)
 }
 
+#[tauri::command]
+pub fn run_automation(
+    id: String,
+    note: Option<String>,
+    state: State<AppState>,
+) -> AppResult<serde_json::Value> {
+    crate::automation::execute(&state, &id, note.as_deref())
+}
+
+#[tauri::command]
+pub fn list_automation_runs(
+    id: Option<String>,
+    state: State<AppState>,
+) -> AppResult<Vec<serde_json::Value>> {
+    crate::automation::list_runs(&state, id.as_deref())
+}
+
 // ---------- plugins ----------
 #[tauri::command]
 pub fn list_plugins(state: State<AppState>) -> AppResult<Vec<crate::plugins::PluginInfo>> {

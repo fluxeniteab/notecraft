@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { useAppStore } from "../store/appStore";
 import { api } from "../lib/tauri";
 import type { ParsedNote } from "../lib/types";
-import { List, Link2, Tags, Search, Network } from "lucide-react";
+import { List, Link2, Tags, Search, Network, Zap } from "lucide-react";
+import AutomationPanel from "./AutomationPanel";
 
-type Tab = "outline" | "backlinks" | "props" | "search" | "graph";
+type Tab = "outline" | "backlinks" | "props" | "search" | "graph" | "auto";
 
 export default function RightSidebar() {
   const [tab, setTab] = useState<Tab>("outline");
@@ -14,6 +15,7 @@ export default function RightSidebar() {
     { id: "props", icon: <Tags size={13} />, label: "Properties" },
     { id: "search", icon: <Search size={13} />, label: "Search" },
     { id: "graph", icon: <Network size={13} />, label: "Graph" },
+    { id: "auto", icon: <Zap size={13} />, label: "Automation" },
   ];
   return (
     <div className="h-full flex flex-col bg-bg-elev">
@@ -30,6 +32,7 @@ export default function RightSidebar() {
         {tab === "props" && <PropertiesPanel />}
         {tab === "search" && <SearchPanel />}
         {tab === "graph" && <MiniGraph />}
+        {tab === "auto" && <AutomationPanel />}
       </div>
     </div>
   );

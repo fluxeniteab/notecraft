@@ -75,6 +75,23 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
           </Row>
         </div>
         <div className="mt-4 flex justify-end gap-2">
+          <button onClick={() => {
+            const blob = new Blob([JSON.stringify(draft, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url; a.download = "notecraft-theme.json"; a.click();
+            URL.revokeObjectURL(url);
+          }} className="px-3 py-1.5 rounded border border-border">Export theme</button>
+          <button onClick={() => {
+            const input = document.createElement("input");
+            input.type = "file"; input.accept = "application/json";
+            input.onchange = async () => {
+              const f = input.files?.[0]; if (!f) return;
+              const txt = await f.text();
+              try { setDraft({ ...draft, ...JSON.parse(txt) }); } catch { /* ignore */ }
+            };
+            input.click();
+          }} className="px-3 py-1.5 rounded border border-border">Import theme</button>
           <button onClick={onClose} className="px-3 py-1.5 rounded border border-border">Cancel</button>
           <button onClick={save} className="px-3 py-1.5 rounded bg-accent text-accent-fg">Save</button>
         </div>

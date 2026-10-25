@@ -54,6 +54,8 @@ export const api = {
   saveAutomation: (a: unknown) => invoke<void>("save_automation", { a }),
   deleteAutomation: (id: string) => invoke<void>("delete_automation", { id }),
   runAutomationDryRun: (id: string) => invoke<unknown>("run_automation_dry_run", { id }),
+  runAutomation: (id: string, note?: string) => invoke<unknown>("run_automation", { id, note }),
+  listAutomationRuns: (id?: string) => invoke<unknown[]>("list_automation_runs", { id }),
   // plugins
   listPlugins: () => invoke<unknown[]>("list_plugins"),
   enablePlugin: (id: string, enabled: boolean) => invoke<void>("enable_plugin", { id, enabled }),

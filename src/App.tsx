@@ -36,8 +36,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    applyTheme(theme, settings?.accent);
-  }, [theme, settings?.accent]);
+    applyTheme(theme, settings?.accent, settings?.reduced_motion, settings?.high_contrast);
+  }, [theme, settings?.accent, settings?.reduced_motion, settings?.high_contrast]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

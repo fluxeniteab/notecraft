@@ -70,6 +70,8 @@ pub fn run() {
             commands::save_automation,
             commands::delete_automation,
             commands::run_automation_dry_run,
+            commands::run_automation,
+            commands::list_automation_runs,
             commands::list_plugins,
             commands::enable_plugin,
             commands::uninstall_plugin,
