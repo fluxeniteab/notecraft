@@ -117,12 +117,12 @@ pub fn search(
             .doc(doc_addr)
             .map_err(|e| AppError::Tantivy(e.to_string()))?;
         let path = match doc.get_first(path_f) {
-            Some(tantivy::schema::OwnedValue::Text(t)) => t,
+            Some(tantivy::schema::OwnedValue::Str(t)) => t,
             _ => "",
         }
         .to_string();
         let title = match doc.get_first(title_f) {
-            Some(tantivy::schema::OwnedValue::Text(t)) => t,
+            Some(tantivy::schema::OwnedValue::Str(t)) => t,
             _ => "",
         }
         .to_string();
@@ -137,7 +137,7 @@ pub fn search(
         if let Some(tag) = filters.get("tag").and_then(|v| v.as_str()) {
             if !tag.is_empty() {
                 let tags_val = match doc.get_first(tags_f) {
-                    Some(tantivy::schema::OwnedValue::Text(t)) => t.as_str(),
+                    Some(tantivy::schema::OwnedValue::Str(t)) => t.as_str(),
                     _ => "",
                 };
                 if !tags_val.contains(tag) {
