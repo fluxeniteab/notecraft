@@ -141,7 +141,7 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 - [x] Editor typography settings
 - [x] Reading width
 - [x] Reduced motion/high contrast (settings)
-- [ ] Theme import/export
+- [x] Theme import/export
 - [ ] Keyboard shortcut customization
 - [ ] Per-workspace settings
 
@@ -150,16 +150,16 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 - [x] Registry (db)
 - [x] Enable/disable/uninstall
 - [x] Permissions (stored)
-- [ ] Example plugin
-- [ ] API docs
+- [x] Example plugin (docs/examples/plugin-example)
+- [x] API docs (docs/PLUGIN_API.md)
 - [ ] Marketplace interface
 
 ## Automation
 - [x] Rule model (db)
 - [x] Save/delete/list
 - [x] Dry-run preview
-- [ ] Triggers/conditions/actions engine
-- [ ] Loop detection/limits
+- [~] Triggers/conditions/actions engine (manual run + property/move/template actions)
+- [x] Loop detection/limits (execution counter)
 
 ## Sync
 - [x] Status interface

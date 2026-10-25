@@ -1,0 +1,10 @@
+{
+  "id": "com.notecraft.example",
+  "name": "Example Plugin",
+  "version": "1.0.0",
+  "author": "NoteCraft",
+  "description": "Example plugin demonstrating the NoteCraft plugin API.",
+  "api_version": "1",
+  "entry": "index.js",
+  "permissions": ["notes:read", "commands:register"]
+}
