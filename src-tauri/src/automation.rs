@@ -237,32 +237,39 @@ pub fn list_runs(state: &State<AppState>, id: Option<&str>) -> AppResult<Vec<Val
             "SELECT id,automation_id,started_at,status,log FROM automation_runs ORDER BY started_at DESC"
         };
         let mut stmt = conn.prepare(sql).map_err(AppError::Sqlite)?;
-        let rows = if let Some(i) = id {
-            stmt.query_map(rusqlite::params![i], |r| {
-                Ok(serde_json::json!({
-                    "id": r.get::<_,String>(0)?,
-                    "automation_id": r.get::<_,String>(1)?,
-                    "started_at": r.get::<_,String>(2)?,
-                    "status": r.get::<_,String>(3)?,
-                    "log": r.get::<_,String>(4)?,
-                }))
-            })
-            .map_err(AppError::Sqlite)?
+        if let Some(i) = id {
+            let rows = stmt
+                .query_map(rusqlite::params![i], |r| {
+                    Ok(serde_json::json!({
+                        "id": r.get::<_,String>(0)?,
+                        "automation_id": r.get::<_,String>(1)?,
+                        "started_at": r.get::<_,String>(2)?,
+                        "status": r.get::<_,String>(3)?,
+                        "log": r.get::<_,String>(4)?,
+                    }))
+                })
+                .map_err(AppError::Sqlite)?;
+            for r in rows {
+                if let Ok(v) = r {
+                    out.push(v);
+                }
+            }
         } else {
-            stmt.query_map([], |r| {
-                Ok(serde_json::json!({
-                    "id": r.get::<_,String>(0)?,
-                    "automation_id": r.get::<_,String>(1)?,
-                    "started_at": r.get::<_,String>(2)?,
-                    "status": r.get::<_,String>(3)?,
-                    "log": r.get::<_,String>(4)?,
-                }))
-            })
-            .map_err(AppError::Sqlite)?
-        };
-        for r in rows {
-            if let Ok(v) = r {
-                out.push(v);
+            let rows = stmt
+                .query_map([], |r| {
+                    Ok(serde_json::json!({
+                        "id": r.get::<_,String>(0)?,
+                        "automation_id": r.get::<_,String>(1)?,
+                        "started_at": r.get::<_,String>(2)?,
+                        "status": r.get::<_,String>(3)?,
+                        "log": r.get::<_,String>(4)?,
+                    }))
+                })
+                .map_err(AppError::Sqlite)?;
+            for r in rows {
+                if let Ok(v) = r {
+                    out.push(v);
+                }
             }
         }
     }
