@@ -28,14 +28,14 @@ export default function EditorArea() {
 
   useEffect(() => {
     if (!active || !content) return;
-    if (active.mode === "reading" || active.mode === "split") {
+    if (active.mode === "reading" || active.mode === "live" || active.mode === "split") {
       api.renderHtml(content).then(setHtml).catch(() => setHtml(""));
     }
   }, [content, active?.mode]);
 
   useEffect(() => {
     if (!containerRef.current || !active) return;
-    if (active.mode === "reading") {
+    if (active.mode === "reading" || active.mode === "live") {
       if (viewRef.current) { viewRef.current.destroy(); viewRef.current = null; }
       return;
     }
@@ -93,11 +93,11 @@ export default function EditorArea() {
         <span className="text-[11px] text-fg-muted tabular-nums">{content.split(/\s+/).filter(Boolean).length} words</span>
       </div>
       <div className="flex-1 min-h-0 flex">
-        {mode !== "reading" && (
+        {(mode === "source" || mode === "split") && (
           <div ref={containerRef} className={cn("min-h-0 transition-all duration-200", mode === "split" ? "w-1/2 border-r border-border" : "w-full")} />
         )}
-        {(mode === "reading" || mode === "split") && (
-          <div className={cn("overflow-auto nc-scroll p-8 nc-prose transition-all duration-200", mode === "split" ? "w-1/2" : "w-full")} dangerouslySetInnerHTML={{ __html: html }} />
+        {(mode === "live" || mode === "reading" || mode === "split") && (
+          <div className={cn("overflow-auto nc-scroll p-8 nc-prose transition-all duration-200", (mode === "split") ? "w-1/2" : "w-full")} dangerouslySetInnerHTML={{ __html: html }} />
         )}
       </div>
       {loading && (
