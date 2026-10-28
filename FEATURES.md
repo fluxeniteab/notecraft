@@ -93,7 +93,7 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 
 ## Search
 - [x] Full-text (Tantivy)
-- [~] Incremental indexing (note saves update the index; Rust CI verification pending)
+- [x] Incremental indexing (note saves update the index; cargo check/test green in CI)
 - [x] Snippets/highlighting
 - [x] Search-as-you-type (UI manual)
 - [x] Filters (folder + tag in the UI, folder/tag in backend)
@@ -118,7 +118,7 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 - [x] Recover selected content (insert snapshot lines into the editor)
 - [x] Trash recovery
 - [x] Interrupted write recovery (atomic)
-- [~] Tests (rust unit, CI-verified on push)
+- [x] Tests (rust unit suite green in GitHub CI)
 
 ## Workspaces & productivity
 - [x] Saved workspaces (db)

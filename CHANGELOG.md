@@ -6,7 +6,8 @@
 - Reworked the desktop workspace with a premium dark-first interface, a compatible light theme,
   persistent multi-tab Markdown editing, and source/live/reading/split editor modes.
 - Added safer save handling for tab and vault changes, theme migration, and local search/link/graph
-  index maintenance; Rust behavior remains subject to GitHub CI verification.
+  index maintenance; the GitHub Actions pipeline (cargo fmt/check/test/clippy and a full
+  Tauri build) passes on this release tag.
 - Vault, editor, search, links, graph, canvas, properties, templates, history, workspaces,
   automation (basic), plugins (basic), sync (local-only), import/export (basic).
 
