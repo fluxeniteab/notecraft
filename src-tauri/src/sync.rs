@@ -146,10 +146,10 @@ fn pairs(state: &State<AppState>) -> AppResult<Vec<(String, PathBuf, PathBuf)>> 
 }
 
 pub fn folder_status(state: &State<AppState>) -> AppResult<Vec<SyncFileStatus>> {
-    pairs(state)?
+    Ok(pairs(state)?
         .iter()
         .map(|(rel, local, remote)| classify(state, rel, local, remote))
-        .collect()
+        .collect())
 }
 
 pub fn push(state: &State<AppState>) -> AppResult<Vec<SyncFileStatus>> {

@@ -71,8 +71,15 @@ pub fn rebuild_for_note(conn: &Connection, note_rel: &str, content: &str) -> App
     .map_err(AppError::Sqlite)?;
     for t in &parsed.tasks {
         conn.execute(
-            "INSERT INTO tasks(note_path,line,text,done) VALUES(?1,?2,?3,?4)",
-            rusqlite::params![note_rel, t.line as i64, t.text, if t.done { 1 } else { 0 }],
+            "INSERT INTO tasks(note_path,line,text,done,due,priority) VALUES(?1,?2,?3,?4,?5,?6)",
+            rusqlite::params![
+                note_rel,
+                t.line as i64,
+                t.text,
+                if t.done { 1 } else { 0 },
+                t.due,
+                t.priority
+            ],
         )
         .map_err(AppError::Sqlite)?;
     }
@@ -244,10 +251,12 @@ pub fn rename_tag_in_content(content: &str, from: &str, to: &str) -> (String, us
         regex::escape(from)
     ))
     .unwrap();
-    let mut out = inline.replace_all(content, |caps: &regex::Captures| {
-        count += 1;
-        format!("{}#{}", &caps[1], to)
-    });
+    let mut out = inline
+        .replace_all(content, |caps: &regex::Captures| {
+            count += 1;
+            format!("{}#{}", &caps[1], to)
+        })
+        .into_owned();
     // `tags: one, two` scalar / flow-list values: keep everything before the
     // tag intact so `tags: [work, old]` becomes `tags: [work, archived]`.
     let scalar = regex::Regex::new(&format!(

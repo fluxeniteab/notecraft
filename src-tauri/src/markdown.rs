@@ -47,6 +47,8 @@ pub struct TaskRef {
     pub text: String,
     pub done: bool,
     pub indent: usize,
+    pub due: Option<String>,
+    pub priority: Option<String>,
 }
 
 pub fn parse_frontmatter(content: &str) -> (Frontmatter, String) {
