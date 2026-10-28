@@ -11,8 +11,6 @@
     "core:window:allow-destroy",
     "core:window:allow-start-dragging",
     "core:window:allow-is-maximized",
-    "core:window:allow-on-resized",
-    "core:window:allow-on-close-requested",
     "opener:default",
     "dialog:default",
     "dialog:allow-open",
