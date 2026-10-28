@@ -303,7 +303,10 @@ fn expand_wikilinks(body: &str) -> String {
                 href.push_str(&h.replace(' ', "%20"));
             }
             if target.is_empty() && heading.is_none() {
-                return caps.get(0).map(|m| m.as_str().to_string()).unwrap_or_default();
+                return caps
+                    .get(0)
+                    .map(|m| m.as_str().to_string())
+                    .unwrap_or_default();
             }
             format!(
                 "<a class=\"nc-wikilink\" href=\"{}\">{}</a>",

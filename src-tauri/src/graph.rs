@@ -56,13 +56,12 @@ fn resolve_target(
     if wanted.is_empty() {
         return None;
     }
-    let with_ext = if wanted.to_lowercase().ends_with(".md")
-        || wanted.to_lowercase().ends_with(".markdown")
-    {
-        wanted.clone()
-    } else {
-        format!("{}.md", wanted)
-    };
+    let with_ext =
+        if wanted.to_lowercase().ends_with(".md") || wanted.to_lowercase().ends_with(".markdown") {
+            wanted.clone()
+        } else {
+            format!("{}.md", wanted)
+        };
     if let Some(path) = exact.get(&with_ext.to_lowercase()) {
         return Some(path.clone());
     }
@@ -203,7 +202,12 @@ mod tests {
     use std::collections::HashMap;
 
     fn maps() -> (HashMap<String, String>, HashMap<String, String>) {
-        let paths = ["Note.md", "folder/Note.md", "folder/Deep Note.md", "other.md"];
+        let paths = [
+            "Note.md",
+            "folder/Note.md",
+            "folder/Deep Note.md",
+            "other.md",
+        ];
         let exact = paths
             .iter()
             .map(|p| (p.to_lowercase(), p.to_string()))
@@ -246,10 +250,7 @@ mod tests {
     #[test]
     fn drops_unresolved_links() {
         let (exact, by_stem) = maps();
-        assert_eq!(
-            resolve_target("Missing", "Note.md", &exact, &by_stem),
-            None
-        );
+        assert_eq!(resolve_target("Missing", "Note.md", &exact, &by_stem), None);
         assert_eq!(resolve_target("", "Note.md", &exact, &by_stem), None);
     }
 }

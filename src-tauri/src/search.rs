@@ -134,16 +134,13 @@ pub fn index_note(_state: &State<AppState>, rel: &str, content: &str) -> AppResu
         return Ok(());
     }
     let (schema, path_f, title_f, body_f, tags_f) = schema();
-    let index = tantivy::Index::open_in_dir(&idir)
-        .map_err(|e| AppError::Tantivy(e.to_string()))?;
+    let index = tantivy::Index::open_in_dir(&idir).map_err(|e| AppError::Tantivy(e.to_string()))?;
     let mut writer = index
         .writer(15_000_000)
         .map_err(|e| AppError::Tantivy(e.to_string()))?;
     writer.delete_term(tantivy::schema::Term::from_field_text(path_f, rel));
     writer
-        .add_document(note_document(
-            rel, content, path_f, title_f, body_f, tags_f,
-        ))
+        .add_document(note_document(rel, content, path_f, title_f, body_f, tags_f))
         .map_err(|e| AppError::Tantivy(e.to_string()))?;
     writer
         .commit()
@@ -163,8 +160,7 @@ pub fn remove_note(_state: &State<AppState>, rel: &str) -> AppResult<()> {
         return Ok(());
     }
     let (_, path_f, _, _, _) = schema();
-    let index = tantivy::Index::open_in_dir(&idir)
-        .map_err(|e| AppError::Tantivy(e.to_string()))?;
+    let index = tantivy::Index::open_in_dir(&idir).map_err(|e| AppError::Tantivy(e.to_string()))?;
     let mut writer = index
         .writer(15_000_000)
         .map_err(|e| AppError::Tantivy(e.to_string()))?;
