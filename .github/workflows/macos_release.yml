@@ -14,6 +14,10 @@ jobs:
     runs-on: macos-latest
     permissions:
       contents: write
+    env:
+      # Present only when the Developer ID certificate secret is configured;
+      # an empty value would make the bundler attempt a bogus keychain import.
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
     steps:
       - uses: actions/checkout@v4
 
@@ -30,14 +34,18 @@ jobs:
 
       # Signing and notarization activate automatically when the Apple secrets
       # exist (see docs/SIGNING.md). Without them the DMG is unsigned.
-      - name: Build DMG
+      - name: Build signed DMG
+        if: env.APPLE_CERTIFICATE != ''
         env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bun run tauri build --bundles dmg
+
+      - name: Build DMG (unsigned)
+        if: env.APPLE_CERTIFICATE == ''
         run: bun run tauri build --bundles dmg
 
       - name: Upload macOS bundles
