@@ -9,3 +9,6 @@ Thumbs.db
 .env.local
 *.tmp
 coverage/
+
+# Updater signing keys — never commit
+.tauri-keys/

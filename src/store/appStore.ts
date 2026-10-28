@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { FileEntry, Settings, Theme } from "../lib/types";
+import type { FileEntry, ProfileSession, ProfileSummary, Settings, Theme } from "../lib/types";
 import { baseName, normalizeRel, stem } from "../lib/files";
 
 export type TabMode = "source" | "live" | "reading" | "split";
@@ -36,6 +36,8 @@ export interface GotoRequest {
 }
 
 interface AppState {
+  profile: ProfileSession | null;
+  profiles: ProfileSummary[];
   vaultRoot: string | null;
   recentVaults: string[];
   files: FileEntry[];
@@ -57,6 +59,8 @@ interface AppState {
   gotoRequest: GotoRequest | null;
   insertRequest: { path: string; text: string; nonce: number } | null;
   // actions
+  setProfile: (p: ProfileSession | null) => void;
+  setProfiles: (p: ProfileSummary[]) => void;
   setVaultRoot: (p: string | null) => void;
   setRecentVaults: (v: string[]) => void;
   setFiles: (f: FileEntry[]) => void;
@@ -100,6 +104,8 @@ function newId(): string {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
+      profile: null,
+      profiles: [],
       vaultRoot: null,
       recentVaults: [],
       files: [],
@@ -228,6 +234,8 @@ export const useAppStore = create<AppState>()(
         const clamped = Math.max(8, Math.min(48, w));
         set({ panels: { ...get().panels, [k]: clamped } });
       },
+      setProfile: (p) => set({ profile: p }),
+      setProfiles: (p) => set({ profiles: p }),
       setSettings: (s) => set({ settings: s }),
       setTheme: (t) => set({ theme: t }),
       setFocusMode: (b) => set({ focusMode: b }),

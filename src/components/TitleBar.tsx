@@ -3,10 +3,10 @@ import {
   ChevronDown,
   FolderOpen,
   FolderPlus,
+  Lock,
   LogOut,
   Minus,
   Moon,
-  NotebookPen,
   PanelLeft,
   PanelRight,
   Search,
@@ -19,10 +19,12 @@ import { useAppStore } from "../store/appStore";
 import { baseName } from "../lib/files";
 import { isTauri } from "../lib/theme";
 import { openVaultAt, pickVault, closeCurrentVault } from "../lib/vaultActions";
+import { api } from "../lib/tauri";
 import { setThemeEverywhere } from "../lib/settingsActions";
 import { ContextMenu, IconButton, Kbd, type MenuEntry } from "./ui";
 
 export default function TitleBar({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const profile = useAppStore((s) => s.profile);
   const vaultRoot = useAppStore((s) => s.vaultRoot);
   const recentVaults = useAppStore((s) => s.recentVaults);
   const panels = useAppStore((s) => s.panels);
@@ -74,7 +76,28 @@ export default function TitleBar({ onOpenSettings }: { onOpenSettings: () => voi
     }
   };
 
+  const lockProfile = async () => {
+    const { flushAll } = await import("../lib/saveRegistry");
+    await flushAll();
+    await api.lockProfile().catch(() => {});
+    useAppStore.getState().setProfile(null);
+    useAppStore.getState().setVaultRoot(null);
+    useAppStore.getState().setFiles([]);
+    useAppStore.getState().setAllFiles([]);
+  };
+
   const vaultItems: MenuEntry[] = [
+    ...(profile
+      ? [
+          { header: profile.username } as const,
+          {
+            label: "Lock profile",
+            icon: <Lock size={13} />,
+            onSelect: () => void lockProfile(),
+          },
+          { separator: true } as const,
+        ]
+      : []),
     ...(recentVaults.length
       ? [
           { header: "Recent vaults" } as const,
@@ -86,7 +109,7 @@ export default function TitleBar({ onOpenSettings }: { onOpenSettings: () => voi
           { separator: true } as const,
         ]
       : []),
-    { label: "Open vault…", icon: <FolderOpen size={13} />, onSelect: () => void pickVault("open") },
+    { label: "Open folder…", icon: <FolderOpen size={13} />, onSelect: () => void pickVault("open") },
     { label: "Create vault…", icon: <FolderPlus size={13} />, onSelect: () => void pickVault("create") },
     ...(vaultRoot
       ? [
@@ -104,10 +127,8 @@ export default function TitleBar({ onOpenSettings }: { onOpenSettings: () => voi
   return (
     <header className="nc-titlebar" data-tauri-drag-region>
       <div className="nc-brand" data-tauri-drag-region>
-        <div className="nc-brand-mark">
-          <NotebookPen size={13} strokeWidth={2.2} />
-        </div>
-        <span className="nc-brand-name">NoteCraft</span>
+        <div className="nc-brand-mark">N</div>
+        <span className="nc-brand-name">{profile?.username ?? "NoteCraft"}</span>
       </div>
 
       <button
@@ -117,10 +138,10 @@ export default function TitleBar({ onOpenSettings }: { onOpenSettings: () => voi
           const rect = event.currentTarget.getBoundingClientRect();
           setVaultMenu({ x: rect.left, y: rect.bottom + 6 });
         }}
-        title={vaultRoot ?? "Open a vault"}
+        title={vaultRoot ?? "No vault open"}
       >
         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-        <span className="truncate">{vaultRoot ? baseName(vaultRoot) : "Open a vault"}</span>
+        <span className="truncate">{vaultRoot ? baseName(vaultRoot) : "No vault open"}</span>
         <ChevronDown size={11} className="shrink-0 opacity-60" />
       </button>
 

@@ -63,7 +63,12 @@ pub struct SearchHit {
 }
 
 fn index_dir() -> PathBuf {
-    crate::settings::data_dir().join("search_index")
+    // An unlocked profile keeps its index beside its own encrypted vault so two
+    // accounts never share documents.
+    match crate::secure::active_profile() {
+        Some(id) => crate::secure::profile_dir(&id).join("index"),
+        None => crate::settings::data_dir().join("search_index"),
+    }
 }
 
 fn schema() -> (
@@ -107,7 +112,7 @@ fn rebuild_locked(state: &State<AppState>) -> AppResult<()> {
     let files = vault::walk_markdown(&root, &excluded);
     for f in files {
         let rel = vault::to_rel(&root, &f);
-        let content = std::fs::read_to_string(&f).unwrap_or_default();
+        let content = crate::secure::read_note_text(&f).unwrap_or_default();
         writer
             .add_document(note_document(
                 &rel, &content, path_f, title_f, body_f, tags_f,

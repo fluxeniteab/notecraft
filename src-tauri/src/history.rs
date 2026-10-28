@@ -39,7 +39,7 @@ pub fn snapshot_now(
     let id = uuid::Uuid::new_v4().to_string();
     let dir = snapshots_dir().join(&id);
     std::fs::create_dir_all(&dir).map_err(AppError::Io)?;
-    std::fs::write(dir.join("content.md"), &content).map_err(AppError::Io)?;
+    crate::secure::write_note_file(&dir.join("content.md"), content.as_bytes())?;
     let hash = hash_content(&content);
     let size = content.len();
     let created_at = chrono::Utc::now().to_rfc3339();
@@ -101,7 +101,7 @@ pub fn get_content(state: &State<AppState>, id: &str) -> AppResult<String> {
     });
     drop(g);
     let dp = data_path.ok_or_else(|| AppError::NotFound(id.into()))?;
-    std::fs::read_to_string(PathBuf::from(dp).join("content.md")).map_err(AppError::Io)
+    crate::secure::read_note_text(&PathBuf::from(dp).join("content.md"))
 }
 
 pub fn restore(state: &State<AppState>, id: &str) -> AppResult<()> {

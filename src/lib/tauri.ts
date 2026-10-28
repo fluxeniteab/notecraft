@@ -1,8 +1,20 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { FileEntry, ParsedNote, Settings, SearchResult, GraphData, Snapshot, Workspace, LinkRef, TaskItem, CollectionConfig, SyncFileStatus } from "./types";
+import type { FileEntry, ParsedNote, Settings, SearchResult, GraphData, Snapshot, Workspace, LinkRef, TaskItem, CollectionConfig, SyncFileStatus, ProfileSession, ProfileSummary } from "./types";
 
 export const api = {
+  // local profiles
+  listProfiles: () => invoke<ProfileSummary[]>("list_profiles"),
+  currentProfile: () => invoke<ProfileSession | null>("current_profile"),
+  createProfile: (username: string, password: string) =>
+    invoke<ProfileSummary>("create_profile", { username, password }),
+  unlockProfile: (username: string, password: string) =>
+    invoke<ProfileSummary>("unlock_profile", { username, password }),
+  lockProfile: () => invoke<void>("lock_profile"),
+  changeProfilePassword: (username: string, current: string, next: string) =>
+    invoke<void>("change_profile_password", { username, current, next }),
+  deleteProfile: (username: string, password: string) =>
+    invoke<void>("delete_profile", { username, password }),
   // vault
   openVault: (path: string) => invoke<string>("open_vault", { path }),
   createVault: (path: string) => invoke<string>("create_vault", { path }),

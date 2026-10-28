@@ -26,7 +26,10 @@ import QuickCapture from "./components/QuickCapture";
 import SettingsDialog from "./components/SettingsDialog";
 import GraphView from "./components/GraphView";
 import CanvasView from "./components/CanvasView";
+import LockScreen from "./components/LockScreen";
 import { TooltipProvider } from "./components/ui";
+import type { ProfileSession } from "./lib/types";
+import { checkForUpdates } from "./lib/updater";
 
 export default function App() {
   const theme = useAppStore((s) => s.theme);
@@ -34,6 +37,8 @@ export default function App() {
   const panels = useAppStore((s) => s.panels);
   const focusMode = useAppStore((s) => s.focusMode);
   const commandPaletteOpen = useAppStore((s) => s.commandPaletteOpen);
+  const profile = useAppStore((s) => s.profile);
+  const [booting, setBooting] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [captureOpen, setCaptureOpen] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
@@ -57,35 +62,70 @@ export default function App() {
     });
   }, [theme, settings]);
 
-  // Bootstrap backend settings, recents and (if still valid) the open vault.
+  // Load settings, recents and the vault for the current session.
+  const bootstrapSession = useCallback(async () => {
+    try {
+      const loaded = await api.getSettings();
+      const normalized = normalizeTheme(loaded.theme);
+      useAppStore.getState().setSettings({ ...loaded, theme: normalized });
+      useAppStore.getState().setTheme(normalized);
+      if (loaded.theme !== normalized) {
+        void api.saveSettings({ ...loaded, theme: normalized }).catch(() => {});
+      }
+    } catch {
+      /* Browser preview or first run: keep local defaults. */
+    }
+    try {
+      const vaults = await api.listRecentVaults();
+      useAppStore.getState().setRecentVaults(vaults);
+    } catch {
+      /* backend unavailable */
+    }
+    try {
+      const root = await api.getVaultRoot();
+      if (root) {
+        useAppStore.getState().setVaultRoot(root);
+        await refreshVault();
+      }
+    } catch {
+      /* backend unavailable */
+    }
+  }, []);
+
   useEffect(() => {
     let alive = true;
-    api
-      .getSettings()
-      .then((loaded) => {
-        if (!alive) return;
-        const normalized = normalizeTheme(loaded.theme);
-        useAppStore.getState().setSettings({ ...loaded, theme: normalized });
-        useAppStore.getState().setTheme(normalized);
-        if (loaded.theme !== normalized) {
-          void api.saveSettings({ ...loaded, theme: normalized }).catch(() => {});
-        }
-      })
-      .catch(() => {
-        /* Browser preview or first run: keep local defaults. */
-      });
-    api.listRecentVaults().then((vaults) => alive && useAppStore.getState().setRecentVaults(vaults)).catch(() => {});
-    api
-      .getVaultRoot()
-      .then((root) => {
-        if (!alive || !root) return;
-        useAppStore.getState().setVaultRoot(root);
-        void refreshVault();
-      })
-      .catch(() => {});
+    void (async () => {
+      await bootstrapSession();
+      if (!alive) return;
+      try {
+        const session = await api.currentProfile();
+        useAppStore.getState().setProfile(session);
+      } catch {
+        /* browser preview: the lock screen still renders */
+      }
+      if (alive) setBooting(false);
+    })();
     return () => {
       alive = false;
     };
+  }, [bootstrapSession]);
+
+  const handleUnlocked = useCallback(
+    async (session: ProfileSession) => {
+      useAppStore.getState().setProfile(session);
+      await bootstrapSession();
+      void refreshVault();
+      void checkForUpdates({ silent: true });
+    },
+    [bootstrapSession]
+  );
+
+  // The webview's native context menu is never used: every menu in this app is
+  // custom, so the default one only ever gets in the way.
+  useEffect(() => {
+    const onContextMenu = (event: MouseEvent) => event.preventDefault();
+    window.addEventListener("contextmenu", onContextMenu);
+    return () => window.removeEventListener("contextmenu", onContextMenu);
   }, []);
 
   // Keep the file explorer and open-note conflict state in sync with external edits.
@@ -275,11 +315,36 @@ export default function App() {
       if (key === "d" && event.shiftKey) {
         event.preventDefault();
         void setThemeEverywhere(store.theme === "dark" ? "light" : "dark");
+        return;
+      }
+      if (key === "l" && event.shiftKey) {
+        // Lock the profile: flush every buffer, then drop the encryption key.
+        event.preventDefault();
+        void flushAll().then(async () => {
+          await api.lockProfile().catch(() => {});
+          useAppStore.getState().setProfile(null);
+          useAppStore.getState().setVaultRoot(null);
+          useAppStore.getState().setFiles([]);
+          useAppStore.getState().setAllFiles([]);
+        });
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  if (booting) {
+    return (
+      <div className="nc-boot">
+        <div className="nc-boot-mark">N</div>
+        <span>Opening NoteCraft…</span>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return <LockScreen onUnlocked={handleUnlocked} />;
+  }
 
   const main = (
     <div className="nc-main">

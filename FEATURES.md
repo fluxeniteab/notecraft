@@ -2,6 +2,21 @@
 
 Legend: [x] implemented & tested, [~] partial, [ ] planned
 
+## Local accounts, encryption and distribution (0.2.0)
+- [x] Local profiles: one encrypted vault per username in the app data folder
+- [x] Password unlock with Argon2id key derivation; a verifier is stored, never the password
+- [x] Notes and history snapshots encrypted at rest (ChaCha20-Poly1305, fresh nonce per write)
+- [x] Legacy plaintext notes encrypted in place on first unlock
+- [x] Lock profile (Ctrl+Shift+L) drops the in-memory key
+- [x] Change password re-encrypts the vault under a new salt and key
+- [x] Delete profile (requires the password) removes the vault and registry entry
+- [ ] Password recovery (intentionally none: the password is the only key)
+- [x] Per-profile search index and database, so accounts never share documents
+- [x] CLI (notecraft-cli) with username/password auth and --json output
+- [x] In-app updater with signed artifacts and a per-platform latest.json
+- [x] VirusTotal scan of every installer in CI and in each release workflow
+- [x] macOS, Linux and Windows release workflows with artifact upload
+
 ## Core vault & notes
 - [x] Create/open/switch/close vaults (basic)
 - [x] Recent vaults

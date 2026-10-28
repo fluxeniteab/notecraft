@@ -150,3 +150,21 @@ codesign --verify --deep --strict --verbose=2 NoteCraft.app
 spctl --assess --type execute --verbose NoteCraft.app
 xcrun stapler validate NoteCraft_0.1.0_aarch64.dmg
 ```
+
+## Updater signing key
+
+Release bundles are signed with a Tauri minisign key so the updater only installs builds you
+produced. The keypair for this repository was generated with:
+
+```bash
+bun run tauri signer generate -w .tauri-keys/notecraft-updater.key --password ""
+```
+
+- Public key: embedded in `src-tauri/tauri.conf.json` under `plugins.updater.pubkey`.
+- Private key: stored as the `TAURI_SIGNING_PRIVATE_KEY` repository secret.
+- `.tauri-keys/` is gitignored and must never be committed.
+
+Every build workflow passes `TAURI_SIGNING_PRIVATE_KEY` to `tauri build`, which produces the
+`.sig` files next to the updater archives. Rotate the key by generating a new pair, updating the
+public key in the config, and replacing the secret; installed copies then stop accepting updates
+signed with the old key.

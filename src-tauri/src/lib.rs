@@ -1,22 +1,22 @@
-mod automation;
-mod commands;
-mod error;
-mod graph;
-mod history;
-mod import_export;
-mod links;
-mod markdown;
-mod metadata;
-mod plugins;
-mod search;
-mod security;
-mod settings;
-mod state;
-mod sync;
-mod tasks;
-mod templates;
-mod vault;
-mod workspace;
+pub mod automation;
+pub mod commands;
+pub mod error;
+pub mod graph;
+pub mod history;
+pub mod import_export;
+pub mod links;
+pub mod markdown;
+pub mod metadata;
+pub mod plugins;
+pub mod search;
+pub mod secure;
+pub mod settings;
+pub mod state;
+pub mod sync;
+pub mod tasks;
+pub mod templates;
+pub mod vault;
+pub mod workspace;
 
 use state::AppState;
 
@@ -26,6 +26,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             commands::open_vault,
@@ -33,6 +35,13 @@ pub fn run() {
             commands::close_vault,
             commands::get_vault_root,
             commands::list_recent_vaults,
+            commands::list_profiles,
+            commands::current_profile,
+            commands::create_profile,
+            commands::unlock_profile,
+            commands::lock_profile,
+            commands::change_profile_password,
+            commands::delete_profile,
             commands::list_dir,
             commands::list_all_files,
             commands::read_file,

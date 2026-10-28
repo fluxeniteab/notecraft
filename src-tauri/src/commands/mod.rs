@@ -31,6 +31,9 @@ pub fn open_vault(path: String, app: AppHandle, state: State<AppState>) -> AppRe
     if !root.is_dir() {
         return Err(crate::error::AppError::Invalid("not a directory".into()));
     }
+    // A plain folder vault is not encrypted, so drop any unlocked profile key
+    // instead of writing encrypted notes into somebody's plain folder.
+    end_profile_session(&state);
     let mut g = state.inner.lock();
     g.vault_root = Some(root.clone());
     // recent
@@ -67,9 +70,11 @@ pub fn create_vault(path: String, app: AppHandle, state: State<AppState>) -> App
 
 #[tauri::command]
 pub fn close_vault(state: State<AppState>) -> AppResult<()> {
+    crate::secure::lock();
     let mut g = state.inner.lock();
     g.vault_watcher = None;
     g.vault_root = None;
+    g.session = None;
     Ok(())
 }
 
@@ -88,6 +93,117 @@ pub fn list_recent_vaults(state: State<AppState>) -> AppResult<Vec<String>> {
         .iter()
         .map(|p| p.to_string_lossy().to_string())
         .collect())
+}
+
+// ---------- local profiles (encrypted vaults) ----------
+
+/// Forget the unlocked profile without touching its data.
+fn end_profile_session(state: &State<AppState>) {
+    crate::secure::lock();
+    let mut g = state.inner.lock();
+    g.session = None;
+    g.vault_watcher = None;
+    g.vault_root = None;
+    g.db = crate::state::open_global_db();
+}
+
+#[tauri::command]
+pub fn list_profiles() -> AppResult<Vec<crate::secure::ProfileSummary>> {
+    Ok(crate::secure::list_profiles())
+}
+
+#[tauri::command]
+pub fn current_profile(state: State<AppState>) -> AppResult<Option<crate::state::ProfileSession>> {
+    Ok(state.inner.lock().session.clone())
+}
+
+/// Open a profile's database and encrypted vault, then rebuild its indexes.
+fn attach_profile(
+    app: &AppHandle,
+    state: &State<AppState>,
+    profile: &crate::secure::ProfileSummary,
+) -> AppResult<()> {
+    let dir = crate::secure::profile_dir(&profile.id);
+    let vault = crate::secure::profile_vault_dir(&profile.id);
+    std::fs::create_dir_all(&vault).map_err(crate::error::AppError::Io)?;
+    let db = crate::state::open_profile_db(&dir);
+    {
+        let mut g = state.inner.lock();
+        g.db = db;
+        g.session = Some(crate::state::ProfileSession {
+            id: profile.id.clone(),
+            username: profile.username.clone(),
+        });
+        g.vault_root = Some(vault.clone());
+    }
+    // First unlock of a vault created before encryption existed.
+    match crate::secure::encrypt_plaintext_notes(&vault) {
+        Ok(0) => {}
+        Ok(count) => log::info!("encrypted {count} plaintext notes for {}", profile.username),
+        Err(error) => log::warn!("could not encrypt legacy notes: {error}"),
+    }
+    start_vault_watcher(app, state, vault)?;
+    crate::search::mark_stale();
+    let _ = rebuild_link_index(state);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn create_profile(
+    username: String,
+    password: String,
+    app: AppHandle,
+    state: State<AppState>,
+) -> AppResult<crate::secure::ProfileSummary> {
+    let profile = crate::secure::create_profile(&username, &password)?;
+    let profile = crate::secure::unlock(&username, &password)?;
+    attach_profile(&app, &state, &profile)?;
+    Ok(profile)
+}
+
+#[tauri::command]
+pub fn unlock_profile(
+    username: String,
+    password: String,
+    app: AppHandle,
+    state: State<AppState>,
+) -> AppResult<crate::secure::ProfileSummary> {
+    let profile = crate::secure::unlock(&username, &password)?;
+    attach_profile(&app, &state, &profile)?;
+    Ok(profile)
+}
+
+#[tauri::command]
+pub fn lock_profile(state: State<AppState>) -> AppResult<()> {
+    end_profile_session(&state);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn change_profile_password(
+    username: String,
+    current: String,
+    next: String,
+    state: State<AppState>,
+) -> AppResult<()> {
+    // Flush nothing here: callers save their buffers before asking for a change.
+    let _ = &state;
+    crate::secure::change_password(&username, &current, &next)
+}
+
+#[tauri::command]
+pub fn delete_profile(username: String, password: String, state: State<AppState>) -> AppResult<()> {
+    if state
+        .inner
+        .lock()
+        .session
+        .as_ref()
+        .map(|session| session.username.eq_ignore_ascii_case(&username))
+        .unwrap_or(false)
+    {
+        end_profile_session(&state);
+    }
+    crate::secure::delete_profile(&username, &password)
 }
 
 fn start_vault_watcher(app: &AppHandle, state: &State<AppState>, root: PathBuf) -> AppResult<()> {
@@ -164,7 +280,7 @@ fn rebuild_link_index(state: &State<AppState>) -> AppResult<()> {
     }
     for path in vault::walk_markdown(&root, &excluded) {
         let rel = vault::to_rel(&root, &path);
-        let content = std::fs::read_to_string(&path).unwrap_or_default();
+        let content = crate::secure::read_note_text(&path).unwrap_or_default();
         let g = state.inner.lock();
         if let Some(conn) = g.db.as_ref() {
             let _ = crate::links::rebuild_for_note(conn, &rel, &content);
@@ -553,7 +669,7 @@ pub fn unlinked_mentions(
         if rel.trim_end_matches(".md") == target_no_ext {
             continue;
         }
-        let Ok(content) = std::fs::read_to_string(&path) else {
+        let Ok(content) = crate::secure::read_note_text(&path) else {
             continue;
         };
         let mut in_fence = false;
@@ -617,7 +733,7 @@ pub fn propagate_link_rename(
     let mut impacts = Vec::new();
     for path in crate::vault::walk_markdown(&root, &excluded) {
         let rel = crate::vault::to_rel(&root, &path);
-        let Ok(content) = std::fs::read_to_string(&path) else {
+        let Ok(content) = crate::secure::read_note_text(&path) else {
             continue;
         };
         let (next, n) =

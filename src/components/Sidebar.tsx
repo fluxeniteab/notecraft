@@ -53,6 +53,7 @@ interface MenuState {
 }
 
 export default function Sidebar() {
+  const profile = useAppStore((s) => s.profile);
   const vaultRoot = useAppStore((s) => s.vaultRoot);
   const settings = useAppStore((s) => s.settings);
   const files = useAppStore((s) => s.files);
@@ -406,8 +407,20 @@ export default function Sidebar() {
 
   return (
     <aside className="nc-sidebar">
+      <div className="nc-workspace">
+        <span className="nc-workspace-avatar">
+          {(profile?.username ?? baseName(vaultRoot)).slice(0, 1).toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="nc-workspace-name">{profile?.username ?? baseName(vaultRoot)}</div>
+          <div className="nc-workspace-sub">
+            {noteCount} {noteCount === 1 ? "note" : "notes"}
+          </div>
+        </div>
+      </div>
+
       <div className="nc-sidebar-header">
-        <span className="nc-section-label">Explorer</span>
+        <span className="nc-section-label">Notes</span>
         {refreshing && <Spinner size={11} />}
         <div className="flex-1" />
         <IconButton label="New note" shortcut="Ctrl N" small onClick={() => setPrompt({ mode: "create-file", dir: "" })}>

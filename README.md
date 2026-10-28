@@ -1,86 +1,114 @@
 # NoteCraft
 
-NoteCraft is an open-source, local-first desktop knowledge-management application built with
-Tauri 2, Rust, React, and TypeScript. It aims to be a comprehensive alternative to Obsidian
-while keeping Markdown files as the source of truth.
+A desktop notes app that keeps everything on your own machine, encrypted with your password.
 
-## Status
+![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-8b5cf6)
+![License](https://img.shields.io/badge/license-GPL--3.0-60a5fa)
 
-Phase 1–3 in progress. Core vault, editor, search, links, graph, canvas, properties, templates,
-and themes are implemented. Automation, plugin platform depth, sync providers, and advanced
-recovery features are partially implemented or planned — see `build.md` and `FEATURES.md`.
+## What it is
 
-## Supported platforms
+NoteCraft is a Markdown knowledge base for people who want their notes to stay put:
 
-- Windows 10/11 (primary). Linux and macOS supported via Tauri 2 architecture (not yet packaged).
+- **Local profiles.** Every username is a separate vault in this app's data folder.
+- **Encrypted at rest.** Notes are sealed with ChaCha20-Poly1305 using a key derived from your
+  password with Argon2id. The password is never written to disk.
+- **Fast editing.** CodeMirror 6 with source, live-preview, reading and split modes.
+- **Real links.** `[[wiki links]]`, backlinks, tags, unlinked mentions and a graph view.
+- **Workflow built in.** Tasks with due dates, daily notes, quick capture, templates,
+  saved searches, snapshots with diff and restore, canvas boards and automations.
+- **A CLI for agents.** `notecraft-cli` reads and writes the same vaults from a terminal.
 
-## Features
+No account, no server, no telemetry. Nothing leaves the machine unless you point a sync folder at it.
 
-See `FEATURES.md` for the honest implementation checklist.
+## Install
 
-## Installation (development)
+Download the installer for your platform from
+[Releases](https://github.com/fluxeniteab/notecraft/releases):
 
-Prerequisites: Bun, Rust toolchain (for Tauri), Node-compatible environment.
+| Platform | File |
+| --- | --- |
+| Windows | `.msi` or `.exe` (NSIS) |
+| macOS | `.dmg` (Apple silicon) |
+| Linux | `.AppImage` or `.deb` |
+
+Builds are scanned with VirusTotal in CI and each release report is attached to the run summary.
+The app checks for signed updates on launch and installs them from the in-app prompt.
+
+## First run
+
+1. Start NoteCraft. You land on the lock screen.
+2. Choose a username and a password of at least 8 characters. That creates an encrypted vault in
+   `%APPDATA%\NoteCraft\profiles\<id>\vault` (Linux: `~/.local/share/NoteCraft`, macOS:
+   `~/Library/Application Support/NoteCraft`).
+3. A tutorial note is seeded so you have something to edit.
+
+The password is the only way in. There is no recovery key and no reset — if it is lost, the notes
+in that profile cannot be decrypted. Export anything you cannot afford to lose.
+
+`Ctrl+Shift+L` locks the app. Locking drops the key from memory; the vault stays on disk.
+
+## Getting around
+
+| Action | Shortcut |
+| --- | --- |
+| Command palette | `Ctrl+K` |
+| Quick open | `Ctrl+P` |
+| New note | `Ctrl+N` |
+| Daily note | `Ctrl+Alt+N` |
+| Quick capture | `Ctrl+Shift+N` |
+| Save now | `Ctrl+S` |
+| Search everything | `Ctrl+Shift+F` |
+| Toggle sidebar / context panel | `Ctrl+B` / `Ctrl+\` |
+| Focus mode | `Ctrl+Shift+F` |
+| Switch theme | `Ctrl+Shift+D` |
+| Lock profile | `Ctrl+Shift+L` |
+
+Right-click menus are custom; the webview's own context menu is disabled.
+
+## Command line
+
+The CLI uses the same encrypted vaults and the same credentials:
 
 ```bash
-bun install
-bun run tauri dev
+notecraft-cli profiles
+notecraft-cli list --user ada --password 'correct horse battery'
+notecraft-cli read "Tutorial.md" --user ada --password '...'
+notecraft-cli write "inbox.md" --stdin --user ada --password '...' < note.md
+notecraft-cli search "graph" --json --user ada --password '...'
 ```
 
-## Build
+`NOTECRAFT_USER` and `NOTECRAFT_PASSWORD` work too. `--json` prints a single document, which is
+what agents and scripts should use. See [docs/CLI.md](docs/CLI.md).
+
+## Privacy and security
+
+Read [docs/SECURITY.md](docs/SECURITY.md) for the exact scheme, what is encrypted, and the limits
+of the threat model.
+
+## Development
 
 ```bash
 bun install
+bun run dev          # Vite dev server on http://localhost:1420
 bun run typecheck
 bun run lint
 bun run test
 bun run build
-cd src-tauri
-cargo fmt --all -- --check
-cargo check --all-targets
-cargo test --all-targets
-cargo clippy --all-targets -- -D warnings
-bun run tauri build
+bun run tauri dev    # full desktop app
 ```
 
-Rust checks run in GitHub Actions (`.github/workflows/ci.yml`) because local Rust tooling may be
-unavailable. Frontend checks run with Bun.
+Rust is built and tested in GitHub Actions (`.github/workflows/ci.yml`); the release workflows in
+[.github/workflows](.github/workflows) package Windows, macOS and Linux builds.
 
-## Vault compatibility
+## Documentation
 
-Notes are plain Markdown (`.md`) with YAML frontmatter. Any folder can be opened as a vault.
-NoteCraft writes a `.notecraft/` directory inside the vault for trash, snapshots metadata references,
-and app data; note content remains readable by other Markdown editors.
-
-## Privacy
-
-- No mandatory account or network connection.
-- No analytics or telemetry by default; telemetry is opt-in.
-- No cloud upload of notes without explicit user action.
-- Strict Tauri capabilities; narrow command surface.
-
-## Plugin security
-
-Downloaded plugins are treated as untrusted. The plugin manager enforces a declared permission
-model. Native Rust plugins are trusted executable code. Full sandboxing of third-party frontend
-extensions is not claimed.
-
-## Synchronization
-
-A provider-independent sync layer with conflict detection exists, but no remote provider is
-implemented. The app is fully functional offline.
-
-## Known limitations
-
-- Remote sync providers not implemented.
-- PDF export relies on OS print pipeline (not yet wired).
-- Semantic search requires an explicit local model download (disabled by default).
-- Bundle/installer generation disabled pending icon assets.
-
-## Contributing
-
-See `CONTRIBUTING.md`.
+- [Tutorial](docs/TUTORIAL.md) — a guided tour of every feature
+- [CLI](docs/CLI.md) — terminal access for scripts and agents
+- [Security](docs/SECURITY.md) — encryption scheme and threat model
+- [Signing](docs/SIGNING.md) — code signing and notarization secrets
+- [Feature checklist](FEATURES.md) — what is implemented and what is not
+- [Changelog](CHANGELOG.md)
 
 ## License
 
-GPL-3.0-only. See `LICENSE`.
+GPL-3.0-only.

@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.2.0
+
+### Added
+- Local profiles: each username is a separate vault under the app data folder, unlocked with a
+  password (Argon2id + ChaCha20-Poly1305). Notes and history snapshots are encrypted at rest;
+  legacy plaintext notes are encrypted on first unlock. `Ctrl+Shift+L` locks the app.
+- `notecraft-cli` binary with the same credentials, `--json` output, and commands for list, read,
+  write, append, new, search, tasks and delete, so agents and scripts can use the vault locally.
+- In-app updater: signed update artifacts per platform, `latest.json` assembled by the release
+  workflows, and an install prompt inside the app.
+- VirusTotal scanning of every installer (`.msi`, `.exe`, `.deb`, `.AppImage`, `.dmg`) in CI and in
+  all three release workflows; the run summary lists each engine count.
+- macOS and Linux release workflows alongside Windows, each publishing bundles and updater
+  artifacts to the release.
+
+### Changed
+- UI reads as a document workspace: workspace block in the sidebar, page-style empty states
+  instead of marketing copy, softer borders in the dark theme.
+- Uses the operating system's own fonts; bundled webfont packages were removed.
+- The webview's native context menu is disabled app-wide; every menu is custom.
+- Version bumped to 0.2.0 across the app, crate and package manifests.
+
+### Fixed
+- Linux builds failed because the app icon was RGB without an alpha channel; the icon set is now
+  RGBA with `.icns` for macOS.
+- Settings modal could not scroll on short windows, cutting off the lower sections.
+- Manual release runs skipped attaching bundles to the release because dispatch runs are not tag
+  refs; the release workflows now accept a tag input.
+
 ## 0.1.0 (unreleased)
 
 - Initial Tauri 2 + React + Rust implementation.

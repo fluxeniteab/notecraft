@@ -47,6 +47,68 @@ pub fn list(state: &State<AppState>) -> AppResult<Vec<TemplateInfo>> {
     Ok(out)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tutorial_note_has_outline_headings() {
+        let note = tutorial_note();
+        assert!(note.contains("# Welcome to NoteCraft"));
+        // The outline panel reads ATX headings, so the seed note needs some.
+        assert!(note.lines().filter(|line| line.starts_with("## ")).count() >= 4);
+        assert!(note.contains("[["));
+    }
+}
+
+/// The note seeded into every new profile. Keeping it in Rust means first run
+/// works offline and the tutorial matches the shipped feature set.
+pub fn tutorial_note() -> String {
+    format!(
+        r#"# Welcome to NoteCraft
+
+Your notes live in an encrypted vault inside this app's data folder and never leave your machine. Press `Ctrl+K` for any command, `Ctrl+P` to jump to a note.
+
+## Write anything
+
+Notes are plain Markdown. Type `[[` to link another note, `#` plus a word for a tag, and `- [ ]` for a task.
+
+- [ ] Read this note
+- [ ] Create your first note with `Ctrl+N`
+- [ ] Open the command palette with `Ctrl+K`
+
+## Link your thinking
+
+A link like [[Tutorial]] shows up as a backlink on the other note, and the graph view draws the connection.
+
+> Tip: open the right sidebar with `Ctrl+\` to see backlinks and the outline.
+
+## Capture fast
+
+`Ctrl+Shift+N` opens quick capture and appends to your inbox note. `Ctrl+Alt+N` opens today's daily note.
+
+## Stay safe
+
+- Notes are encrypted with a key derived from your password.
+- Lock the app from the command palette when you step away.
+- Snapshots are taken automatically so you can restore an older version.
+
+## Where things are
+
+| What | Shortcut |
+| --- | --- |
+| Command palette | `Ctrl+K` |
+| Quick open | `Ctrl+P` |
+| New note | `Ctrl+N` |
+| Search everywhere | `Ctrl+Shift+F` |
+| Toggle sidebar | `Ctrl+B` |
+| Focus mode | `Ctrl+Shift+F` |
+
+Delete this note whenever you like.
+"#
+    )
+}
+
 pub fn render(
     state: &State<AppState>,
     path: &str,

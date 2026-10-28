@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "NoteCraft",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.fluxenite.notecraft",
   "build": {
     "beforeDevCommand": "bun run dev",
@@ -26,8 +26,19 @@
       "csp": "default-src 'self'; img-src 'self' asset: https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost"
     }
   },
+  "plugins": {
+    "updater": {
+      "dialog": false,
+      "endpoints": [
+        "https://github.com/fluxeniteab/notecraft/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDMzQTg4M0MxNEIxQUM1REQKUldUZHhScEx3WU9vTTRDQ3pDNmFKRnE1dzJveFZVYmQvVVhiemNEbXl3cVM4YmozZzc4T0ZBZnAK"
+    }
+  },
   "bundle": {
-    "active": true,    "targets": ["msi", "nsis"],
+    "active": true,
+    "targets": ["msi", "nsis"],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -36,7 +47,9 @@
       "icons/icon.ico"
     ],
     "category": "Productivity",
-    "shortDescription": "Local-first knowledge base",
-    "longDescription": "NoteCraft is an open-source, local-first knowledge management application."
+    "publisher": "Fluxenite",
+    "copyright": "Copyright © 2026 Fluxenite. GPL-3.0-only.",
+    "shortDescription": "Encrypted local-first notes",
+    "longDescription": "NoteCraft is an offline-first Markdown knowledge base with encrypted local profiles, backlinks, tasks, graph and canvas views."
   }
 }

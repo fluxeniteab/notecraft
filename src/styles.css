@@ -2665,3 +2665,382 @@ textarea {
   .nc-setting-row { flex-direction: column; align-items: flex-start; gap: 8px; }
   .nc-setting-control { width: 100%; }
 }
+
+/* ---------------------------------------------------------------- *
+ * Native type, softer surfaces (v0.2)
+ * Use the operating system's own UI fonts so the app matches the
+ * desktop instead of shipping webfonts.
+ * ---------------------------------------------------------------- */
+:root,
+[data-theme="dark"],
+[data-theme="light"] {
+  --nc-font-ui: system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --nc-font-title: system-ui, -apple-system, "Segoe UI Variable Display", "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --nc-font-editor: system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --nc-font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas,
+    "Liberation Mono", monospace;
+}
+
+[data-theme="dark"] {
+  /* Pull the border rhythm down a notch: the old values read as hard lines. */
+  --nc-border: #202027;
+  --nc-border-strong: #2c2c35;
+  --nc-fg: #ebebef;
+  --nc-fg-secondary: #a4a4ad;
+}
+
+[data-theme="light"] {
+  --nc-border: #e8e8ec;
+  --nc-border-strong: #d8d8de;
+}
+
+/* ---------------------------------------------------------------- *
+ * Boot + lock screen
+ * ---------------------------------------------------------------- */
+.nc-boot {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  height: 100vh;
+  background: var(--nc-bg);
+  color: var(--nc-fg-muted);
+  font-size: 12px;
+}
+
+.nc-boot-mark,
+.nc-lock-mark {
+  display: grid;
+  place-items: center;
+  height: 34px;
+  width: 34px;
+  border-radius: 10px;
+  background: var(--nc-accent);
+  color: var(--nc-accent-fg);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.nc-lock {
+  display: grid;
+  place-items: center;
+  height: 100vh;
+  padding: 24px;
+  background:
+    radial-gradient(900px 420px at 50% -10%, var(--nc-accent-softer), transparent 70%),
+    var(--nc-bg);
+}
+
+.nc-lock-panel {
+  width: min(400px, 100%);
+  padding: 26px 26px 18px;
+  border-radius: var(--nc-r-xl);
+  border: 1px solid var(--nc-border);
+  background: var(--nc-elev);
+  box-shadow: var(--nc-shadow-lg);
+}
+
+.nc-lock-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.nc-lock-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--nc-fg);
+}
+
+.nc-lock-sub {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: var(--nc-fg-muted);
+}
+
+.nc-lock-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 2px;
+  font-size: 12px;
+  color: var(--nc-fg-muted);
+}
+
+.nc-lock-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nc-lock-field {
+  display: block;
+}
+
+.nc-lock-label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--nc-fg-muted);
+}
+
+.nc-lock-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  height: 34px;
+  border-radius: var(--nc-r-sm);
+  border: 1px solid var(--nc-border-strong);
+  background: var(--nc-surface);
+  color: var(--nc-fg-faint);
+}
+
+.nc-lock-input-wrap:focus-within {
+  border-color: var(--nc-accent);
+  box-shadow: 0 0 0 3px var(--nc-accent-softer);
+}
+
+.nc-lock-input-wrap input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--nc-fg);
+  font: inherit;
+  font-size: 12.5px;
+}
+
+.nc-lock-hint {
+  display: block;
+  margin-top: 5px;
+  font-size: 10.5px;
+  color: var(--nc-fg-faint);
+}
+
+.nc-lock-profiles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 132px;
+  overflow: auto;
+  padding: 4px;
+  border-radius: var(--nc-r-sm);
+  border: 1px solid var(--nc-border);
+  background: var(--nc-surface);
+}
+
+.nc-lock-profile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: var(--nc-r-xs);
+  color: var(--nc-fg-secondary);
+  font-size: 12px;
+  text-align: left;
+}
+
+.nc-lock-profile:hover {
+  background: var(--nc-hover);
+  color: var(--nc-fg);
+}
+
+.nc-lock-profile[data-active] {
+  background: var(--nc-accent-soft);
+  color: var(--nc-fg);
+}
+
+.nc-lock-avatar {
+  display: grid;
+  place-items: center;
+  height: 18px;
+  width: 18px;
+  border-radius: 5px;
+  background: var(--nc-muted);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--nc-fg-secondary);
+}
+
+.nc-lock-error {
+  font-size: 10.5px;
+  color: var(--nc-danger);
+}
+
+.nc-lock-error-block {
+  padding: 7px 9px;
+  border-radius: var(--nc-r-sm);
+  border: 1px solid var(--nc-danger);
+  background: rgb(var(--nc-danger-rgb) / 0.08);
+  font-size: 11.5px;
+}
+
+.nc-lock-submit {
+  justify-content: center;
+  height: 34px;
+  margin-top: 2px;
+}
+
+.nc-lock-switch {
+  display: flex;
+  justify-content: center;
+  padding-top: 2px;
+}
+
+.nc-lock-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px;
+  border-radius: var(--nc-r-xs);
+  font-size: 11px;
+  color: var(--nc-fg-muted);
+}
+
+.nc-lock-switch button:hover {
+  color: var(--nc-fg);
+  background: var(--nc-hover);
+}
+
+.nc-lock-foot {
+  margin: 16px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--nc-border);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--nc-fg-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- *
+ * Notion-style page start: rows, not marketing cards
+ * ---------------------------------------------------------------- */
+.nc-page-start {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 56px 28px 80px;
+}
+
+.nc-page-title {
+  margin: 0 0 6px;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--nc-fg);
+}
+
+.nc-page-sub {
+  margin: 0 0 22px;
+  font-size: 12.5px;
+  color: var(--nc-fg-muted);
+}
+
+.nc-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 26px;
+}
+
+.nc-page-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-bottom: 26px;
+}
+
+.nc-page-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: var(--nc-r-sm);
+  text-align: left;
+  color: var(--nc-fg-secondary);
+  font-size: 12.5px;
+}
+
+.nc-page-row:hover {
+  background: var(--nc-hover);
+  color: var(--nc-fg);
+}
+
+.nc-page-row-icon {
+  display: grid;
+  place-items: center;
+  height: 22px;
+  width: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--nc-border);
+  background: var(--nc-surface);
+  color: var(--nc-fg-muted);
+  font-size: 11px;
+}
+
+.nc-page-row-meta {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--nc-fg-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.nc-page-section {
+  margin: 0 0 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nc-fg-faint);
+}
+
+/* Workspace block at the top of the sidebar */
+.nc-workspace {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px 8px;
+  border-bottom: 1px solid var(--nc-border);
+}
+
+.nc-workspace-avatar {
+  display: grid;
+  place-items: center;
+  height: 24px;
+  width: 24px;
+  border-radius: 7px;
+  background: var(--nc-accent-soft);
+  border: 1px solid var(--nc-border);
+  color: var(--nc-accent);
+  font-size: 11px;
+  font-weight: 600;
+  flex: none;
+}
+
+.nc-workspace-name {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--nc-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nc-workspace-sub {
+  font-size: 10px;
+  color: var(--nc-fg-faint);
+  font-variant-numeric: tabular-nums;
+}

@@ -1,5 +1,17 @@
 export type Theme = "dark" | "light";
 
+export interface ProfileSummary {
+  id: string;
+  username: string;
+  created_at: string;
+  vault_path: string;
+}
+
+export interface ProfileSession {
+  id: string;
+  username: string;
+}
+
 export interface FileEntry {
   path: string;
   name: string;

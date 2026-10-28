@@ -20,7 +20,6 @@ import {
   MoreHorizontal,
   Save,
   Sparkles,
-  Clock3,
 } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { api } from "../lib/tauri";
@@ -206,48 +205,34 @@ export default function EditorArea({
 
       <div className="nc-editor-stage">
         {!vaultRoot ? (
-          <div className="nc-welcome">
-            <div className="nc-welcome-inner">
-              <div className="nc-welcome-mark">
-                <Sparkles size={24} />
-              </div>
-              <h1 className="nc-welcome-title">
-                Your notes, <em>beautifully</em> local.
-              </h1>
-              <p className="nc-welcome-sub">
-                NoteCraft is a calm, local-first writing space. Open a folder of Markdown
-                files or start a new vault — everything stays on your machine.
-              </p>
-              <div className="nc-welcome-actions">
-                <button type="button" className="nc-btn nc-btn-primary" onClick={() => void pickVault("open")}>
-                  <FolderOpen size={14} /> Open a vault
-                </button>
-                <button type="button" className="nc-btn nc-btn-outline" onClick={() => void pickVault("create")}>
-                  <FolderPlus size={14} /> Create a vault
-                </button>
-              </div>
-              <div className="nc-welcome-grid">
-                <div className="nc-welcome-card">
-                  <div className="nc-welcome-card-label">Local-first</div>
-                  <div className="nc-welcome-card-title">Plain Markdown on disk</div>
-                  <div className="nc-welcome-card-sub">Portable, greppable, yours forever.</div>
-                </div>
-                <div className="nc-welcome-card">
-                  <div className="nc-welcome-card-label">Connections</div>
-                  <div className="nc-welcome-card-title">Links, tags and graph</div>
-                  <div className="nc-welcome-card-sub">Find ideas by how they relate.</div>
-                </div>
-              </div>
-              <div className="mt-6 max-w-sm">
-                <div className="nc-shortcut-row">
-                  <span><Kbd>Ctrl</Kbd> <Kbd>K</Kbd> Command palette</span>
-                  <span className="text-fg-faint">Search notes and actions</span>
-                </div>
-                <div className="nc-shortcut-row">
-                  <span><Kbd>Ctrl</Kbd> <Kbd>P</Kbd> Quick switcher</span>
-                  <span className="text-fg-faint">Jump to any note</span>
-                </div>
-              </div>
+          <div className="nc-page-start">
+            <h1 className="nc-page-title">Welcome</h1>
+            <p className="nc-page-sub">Open a folder of Markdown files, or start a new vault.</p>
+            <div className="nc-page-actions">
+              <button type="button" className="nc-btn nc-btn-primary" onClick={() => void pickVault("create")}>
+                <FolderPlus size={14} /> Create vault
+              </button>
+              <button type="button" className="nc-btn nc-btn-outline" onClick={() => void pickVault("open")}>
+                <FolderOpen size={14} /> Open folder
+              </button>
+            </div>
+            <div className="nc-page-section">Get started</div>
+            <div className="nc-page-list">
+              <button type="button" className="nc-page-row" onClick={() => void createNote()}>
+                <span className="nc-page-row-icon"><FilePlus2 size={12} /></span>
+                Create your first note
+                <span className="nc-page-row-meta"><Kbd>Ctrl</Kbd> <Kbd>N</Kbd></span>
+              </button>
+              <button type="button" className="nc-page-row" onClick={() => setQuickSwitcherOpen(true)}>
+                <span className="nc-page-row-icon"><FileText size={12} /></span>
+                Jump to any note
+                <span className="nc-page-row-meta"><Kbd>Ctrl</Kbd> <Kbd>P</Kbd></span>
+              </button>
+              <button type="button" className="nc-page-row" onClick={() => setCommandPaletteOpen(true)}>
+                <span className="nc-page-row-icon"><Keyboard size={12} /></span>
+                Run a command
+                <span className="nc-page-row-meta"><Kbd>Ctrl</Kbd> <Kbd>K</Kbd></span>
+              </button>
             </div>
           </div>
         ) : active ? (
@@ -262,90 +247,66 @@ export default function EditorArea({
             ))}
           </>
         ) : (
-          <div className="nc-welcome">
-            <div className="nc-welcome-inner">
-              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-faint">
-                <Clock3 size={12} /> Pick up where you left off
-              </div>
-              <h1 className="nc-welcome-title mt-3 text-[clamp(26px,3.4vw,36px)]">
-                A quiet place for <em>clear thinking</em>.
-              </h1>
-              <p className="nc-welcome-sub">
-                {baseName(vaultRoot)} is open. Open a note, follow a link, or start something new.
-              </p>
+          <div className="nc-page-start">
+            <h1 className="nc-page-title">{baseName(vaultRoot)}</h1>
+            <p className="nc-page-sub">
+              {recent.length > 0 ? "Pick up where you left off, or start something new." : "This vault is empty. Create your first note."}
+            </p>
+            <div className="nc-page-actions">
+              <button type="button" className="nc-btn nc-btn-primary" onClick={() => void createNote()}>
+                <FilePlus2 size={14} /> New note
+              </button>
+              <button type="button" className="nc-btn nc-btn-outline" onClick={() => setQuickSwitcherOpen(true)}>
+                <FileText size={14} /> Open note
+              </button>
+              <button type="button" className="nc-btn nc-btn-ghost" onClick={() => setCommandPaletteOpen(true)}>
+                <Keyboard size={14} /> Commands
+              </button>
+            </div>
 
-              <div className="nc-welcome-actions">
-                <button type="button" className="nc-btn nc-btn-primary" onClick={() => void createNote()}>
-                  <FilePlus2 size={14} /> New note
-                </button>
-                <button type="button" className="nc-btn nc-btn-outline" onClick={() => setQuickSwitcherOpen(true)}>
-                  <FolderOpen size={14} /> Open note <Kbd>Ctrl P</Kbd>
-                </button>
-                <button type="button" className="nc-btn nc-btn-ghost" onClick={() => setCommandPaletteOpen(true)}>
-                  <Keyboard size={14} /> Commands
-                </button>
-              </div>
-
+            <div className="nc-page-section">{recent.length > 0 ? "Recent" : "Get started"}</div>
+            <div className="nc-page-list">
               {recent.length > 0 ? (
-                <>
-                  <div className="nc-section-label mb-2">Recent notes</div>
-                  <div className="nc-welcome-grid">
-                    {recent.map((file) => (
-                      <button
-                        key={file.path}
-                        type="button"
-                        className="nc-welcome-card"
-                        onClick={() => openTab(file.path)}
-                      >
-                        <div className="nc-welcome-card-label">
-                          {dirName(file.path) || "Vault"}
-                        </div>
-                        <div className="nc-welcome-card-title">{stem(file.path)}</div>
-                        <div className="nc-welcome-card-sub">
-                          {formatRelativeTime(file.modified)} · {file.size.toLocaleString()} bytes
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </>
+                recent.map((file) => (
+                  <button
+                    key={file.path}
+                    type="button"
+                    className="nc-page-row"
+                    onClick={() => openTab(file.path)}
+                  >
+                    <span className="nc-page-row-icon"><FileText size={12} /></span>
+                    <span className="truncate">{stem(file.path)}</span>
+                    <span className="truncate text-fg-faint">{dirName(file.path)}</span>
+                    <span className="nc-page-row-meta">{formatRelativeTime(file.modified)}</span>
+                  </button>
+                ))
               ) : (
-                <div className="nc-welcome-grid">
-                  <div className="nc-welcome-card">
-                    <div className="nc-welcome-card-label">Start here</div>
-                    <div className="nc-welcome-card-title">Create your first note</div>
-                    <div className="nc-welcome-card-sub">Markdown, instantly saved.</div>
-                  </div>
-                  <div className="nc-welcome-card">
-                    <div className="nc-welcome-card-label">Tip</div>
-                    <div className="nc-welcome-card-title">Link with [[double brackets]]</div>
-                    <div className="nc-welcome-card-sub">Connections build the graph automatically.</div>
-                  </div>
-                </div>
+                <button type="button" className="nc-page-row" onClick={() => void createNote()}>
+                  <span className="nc-page-row-icon"><FilePlus2 size={12} /></span>
+                  Create your first note
+                  <span className="nc-page-row-meta"><Kbd>Ctrl</Kbd> <Kbd>N</Kbd></span>
+                </button>
               )}
+            </div>
 
-              <div className="mt-6 grid max-w-md grid-cols-2 gap-x-6">
-                <div className="nc-shortcut-row">
-                  <span><Kbd>Ctrl</Kbd> <Kbd>N</Kbd> New note</span>
-                </div>
-                <div className="nc-shortcut-row">
-                  <span><Kbd>Ctrl</Kbd> <Kbd>K</Kbd> Commands</span>
-                </div>
-                <div className="nc-shortcut-row">
-                  <span><Kbd>Ctrl</Kbd> <Kbd>P</Kbd> Quick switch</span>
-                </div>
-                <div className="nc-shortcut-row">
-                  <span><Kbd>Ctrl</Kbd> <Kbd>\</Kbd> Context panel</span>
-                </div>
+            <div className="nc-page-section">Shortcuts</div>
+            <div className="grid max-w-md grid-cols-2 gap-x-6">
+              <div className="nc-shortcut-row">
+                <span><Kbd>Ctrl</Kbd> <Kbd>K</Kbd> Commands</span>
+              </div>
+              <div className="nc-shortcut-row">
+                <span><Kbd>Ctrl</Kbd> <Kbd>P</Kbd> Quick switch</span>
+              </div>
+              <div className="nc-shortcut-row">
+                <span><Kbd>Ctrl</Kbd> <Kbd>Shift</Kbd> <Kbd>F</Kbd> Search</span>
+              </div>
+              <div className="nc-shortcut-row">
+                <span><Kbd>Ctrl</Kbd> <Kbd>\</Kbd> Context panel</span>
               </div>
             </div>
           </div>
         )}
 
-        {!active && !vaultRoot && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center text-[10.5px] text-fg-faint">
-            All notes stay local. No account, no sync, no telemetry.
-          </div>
-        )}
       </div>
 
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />}

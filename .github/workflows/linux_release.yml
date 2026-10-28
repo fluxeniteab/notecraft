@@ -41,6 +41,8 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build deb and AppImage
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: bun run tauri build --bundles deb,appimage
 
       - name: Upload Linux bundles
@@ -50,8 +52,15 @@ jobs:
           path: |
             src-tauri/target/release/bundle/deb/*.deb
             src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz
+            src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz.sig
           if-no-files-found: error
           retention-days: 30
+
+      - name: VirusTotal scan
+        env:
+          VT_API_KEY: ${{ secrets.VT_SCAN }}
+        run: node .github/scripts/vt-scan.mjs src-tauri/target/release/bundle/deb/*.deb src-tauri/target/release/bundle/appimage/*.AppImage
 
       - name: Attach bundles to the GitHub release
         if: github.ref_type == 'tag' || inputs.tag != ''
@@ -68,4 +77,21 @@ jobs:
           gh release upload "$RELEASE_TAG" \
             src-tauri/target/release/bundle/deb/*.deb \
             src-tauri/target/release/bundle/appimage/*.AppImage \
+            src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz \
             --clobber
+
+      - name: Publish updater manifest
+        if: github.ref_type == 'tag' || inputs.tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          PLATFORM: linux-x86_64
+        run: |
+          shopt -s nullglob
+          archives=(src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz)
+          if [ ${#archives[@]} -eq 0 ]; then
+            echo "No AppImage updater archive was produced" >&2
+            exit 1
+          fi
+          ARTIFACT="${archives[0]}" node .github/scripts/updater-manifest.mjs

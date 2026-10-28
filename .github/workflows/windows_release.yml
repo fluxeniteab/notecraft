@@ -61,10 +61,14 @@ jobs:
 
       - name: Build signed installers
         if: env.AZURE_CODE_SIGNING_ACCOUNT != ''
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: bun run tauri build --bundles msi,nsis --config signing.trusted.json
 
       - name: Build installers (unsigned)
         if: env.AZURE_CODE_SIGNING_ACCOUNT == ''
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: bun run tauri build --bundles msi,nsis
 
       - name: Upload Windows bundles
@@ -74,8 +78,19 @@ jobs:
           path: |
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*.nsis.zip
+            src-tauri/target/release/bundle/nsis/*.sig
           if-no-files-found: error
           retention-days: 30
+
+      - name: VirusTotal scan
+        shell: bash
+        env:
+          VT_API_KEY: ${{ secrets.VT_SCAN }}
+        run: |
+          shopt -s nullglob
+          files=(src-tauri/target/release/bundle/msi/*.msi src-tauri/target/release/bundle/nsis/*.exe)
+          node .github/scripts/vt-scan.mjs "${files[@]}"
 
       - name: Attach bundles to the GitHub release
         if: github.ref_type == 'tag' || inputs.tag != ''
@@ -92,4 +107,21 @@ jobs:
           gh release upload "$RELEASE_TAG" \
             src-tauri/target/release/bundle/msi/*.msi \
             src-tauri/target/release/bundle/nsis/*.exe \
+            src-tauri/target/release/bundle/nsis/*.nsis.zip \
             --clobber
+
+      - name: Publish updater manifest
+        if: github.ref_type == 'tag' || inputs.tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          PLATFORM: windows-x86_64
+        run: |
+          shopt -s nullglob
+          archives=(src-tauri/target/release/bundle/nsis/*.nsis.zip)
+          if [ ${#archives[@]} -eq 0 ]; then
+            echo "No NSIS updater archive was produced" >&2
+            exit 1
+          fi
+          ARTIFACT="${archives[0]}" node .github/scripts/updater-manifest.mjs

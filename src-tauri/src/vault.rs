@@ -101,25 +101,16 @@ pub fn list_dir(
     Ok(out)
 }
 
+/// Read a note, decrypting it when the vault is an unlocked encrypted profile.
 pub fn read_file(root: &Path, rel: &str) -> AppResult<String> {
     let p = join_safe(root, rel)?;
-    std::fs::read_to_string(&p).map_err(AppError::Io)
+    crate::secure::read_note_text(&p)
 }
 
+/// Atomically write a note, encrypting it when a profile is unlocked.
 pub fn write_file_atomic(root: &Path, rel: &str, content: &str) -> AppResult<()> {
     let p = join_safe(root, rel)?;
-    if let Some(parent) = p.parent() {
-        std::fs::create_dir_all(parent).map_err(AppError::Io)?;
-    }
-    // atomic: write tmp then rename
-    let tmp = p.with_extension("tmp_notecraft");
-    std::fs::write(&tmp, content).map_err(AppError::Io)?;
-    // fsync
-    if let Ok(f) = std::fs::File::open(&tmp) {
-        let _ = f.sync_all();
-    }
-    std::fs::rename(&tmp, &p).map_err(AppError::Io)?;
-    Ok(())
+    crate::secure::write_note_file(&p, content.as_bytes())
 }
 
 pub fn create_file(root: &Path, rel: &str, content: &str) -> AppResult<()> {
