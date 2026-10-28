@@ -175,7 +175,10 @@ fn run(args: &[String]) -> Result<(), String> {
             println!("No profiles yet. Create one in the NoteCraft desktop app.");
         }
         for profile in profiles {
-            println!("{:<24} {}  {}", profile.username, profile.created_at, profile.vault_path);
+            println!(
+                "{:<24} {}  {}",
+                profile.username, profile.created_at, profile.vault_path
+            );
         }
         return Ok(());
     }
@@ -195,7 +198,9 @@ fn run(args: &[String]) -> Result<(), String> {
                 .into_iter()
                 .filter(|entry| folder.is_empty() || entry.path.starts_with(&folder))
                 .filter(|entry| {
-                    entry.extension == "md" || entry.extension == "markdown" || entry.extension == "canvas"
+                    entry.extension == "md"
+                        || entry.extension == "markdown"
+                        || entry.extension == "canvas"
                 })
                 .collect();
             entries.sort_by(|a, b| a.path.cmp(&b.path));
@@ -289,11 +294,7 @@ fn run(args: &[String]) -> Result<(), String> {
             }
         }
         "search" => {
-            let query = options
-                .positionals
-                .join(" ")
-                .trim()
-                .to_string();
+            let query = options.positionals.join(" ").trim().to_string();
             if query.is_empty() {
                 return Err("usage: search <query>".into());
             }
@@ -367,7 +368,11 @@ fn run(args: &[String]) -> Result<(), String> {
                 print_json(serde_json::json!({ "tasks": items }))
             } else {
                 for item in &items {
-                    let marker = if item["done"].as_bool().unwrap_or(false) { "x" } else { " " };
+                    let marker = if item["done"].as_bool().unwrap_or(false) {
+                        "x"
+                    } else {
+                        " "
+                    };
                     println!(
                         "[{marker}] {} ({}:{})",
                         item["text"].as_str().unwrap_or(""),

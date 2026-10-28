@@ -95,8 +95,7 @@ fn kdf(password: &str, salt: &[u8]) -> AppResult<[u8; KEY_LEN]> {
 }
 
 fn cipher(key: &[u8; KEY_LEN]) -> AppResult<ChaCha20Poly1305> {
-    ChaCha20Poly1305::new_from_slice(key)
-        .map_err(|_| AppError::Other("invalid key length".into()))
+    ChaCha20Poly1305::new_from_slice(key).map_err(|_| AppError::Other("invalid key length".into()))
 }
 
 /// Encrypt a payload into the `NCV1` container format.
@@ -172,8 +171,7 @@ pub fn can_read(blob: &[u8]) -> bool {
 pub fn read_note_file(path: &Path) -> AppResult<Vec<u8>> {
     let blob = std::fs::read(path).map_err(AppError::Io)?;
     if is_container(&blob) {
-        let key = session_key()
-            .ok_or_else(|| AppError::Permission("profile is locked".into()))?;
+        let key = session_key().ok_or_else(|| AppError::Permission("profile is locked".into()))?;
         open(&key, &blob)
     } else {
         Ok(blob)
@@ -463,8 +461,10 @@ pub fn change_password(username: &str, current: &str, next: &str) -> AppResult<(
     }
 
     registry.profiles[index].salt = B64.encode(salt_bytes);
-    registry.profiles[index].verifier =
-        B64.encode(seal(&new_key, format!("notecraft-profile:{}", summary.id).as_bytes())?);
+    registry.profiles[index].verifier = B64.encode(seal(
+        &new_key,
+        format!("notecraft-profile:{}", summary.id).as_bytes(),
+    )?);
     save_registry(&registry)?;
     set_session_key(Some(new_key));
     Ok(())
