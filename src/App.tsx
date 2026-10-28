@@ -51,7 +51,6 @@ export default function App() {
     applyTheme(theme, {
       accent: settings?.accent,
       reducedMotion: settings?.reduced_motion,
-      highContrast: settings?.high_contrast,
       editorFontSize: settings?.editor_font_size,
       editorLineHeight: settings?.editor_line_height,
       readingWidth: settings?.reading_width,

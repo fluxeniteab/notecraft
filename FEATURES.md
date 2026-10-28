@@ -140,7 +140,7 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 - [x] CSS variables
 - [x] Editor typography settings
 - [x] Reading width
-- [x] Reduced motion/high contrast (settings)
+- [x] Reduced motion (settings)
 - [x] Theme import/export
 - [ ] Keyboard shortcut customization
 - [ ] Per-workspace settings
@@ -184,7 +184,7 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 ## Accessibility/i18n
 - [x] Keyboard nav (basic)
 - [x] Focus (basic)
-- [x] Reduced motion/high contrast
+- [x] Reduced motion
 - [ ] i18n string extraction
 - [ ] Screen-reader labels (partial)
 

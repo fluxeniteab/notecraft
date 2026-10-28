@@ -58,7 +58,6 @@ export interface Settings {
   excluded_folders: string[];
   hidden_files: boolean;
   reduced_motion: boolean;
-  high_contrast: boolean;
   telemetry_opt_in: boolean;
   semantic_search_enabled: boolean;
   daily_note_folder: string;

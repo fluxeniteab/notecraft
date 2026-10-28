@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   Check,
   Download,
   FileCog,
@@ -87,7 +88,6 @@ function coerceSettings(base: Settings, raw: unknown): Settings {
       : base.excluded_folders,
     hidden_files: bool("hidden_files", base.hidden_files),
     reduced_motion: bool("reduced_motion", base.reduced_motion),
-    high_contrast: bool("high_contrast", base.high_contrast),
     telemetry_opt_in: false,
     semantic_search_enabled: false,
     daily_note_folder: typeof data.daily_note_folder === "string" ? data.daily_note_folder.slice(0, 160) : base.daily_note_folder,
@@ -119,7 +119,6 @@ function applyDraft(theme: Theme, draft: Settings) {
   applyTheme(theme, {
     accent: draft.accent,
     reducedMotion: draft.reduced_motion,
-    highContrast: draft.high_contrast,
     editorFontSize: draft.editor_font_size,
     editorLineHeight: draft.editor_line_height,
     readingWidth: draft.reading_width,
@@ -144,6 +143,18 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
   >([]);
   const [syncStatuses, setSyncStatuses] = useState<SyncFileStatus[] | null>(null);
   const [syncBusy, setSyncBusy] = useState<"push" | "pull" | "refresh" | null>(null);
+  const [settingsFailed, setSettingsFailed] = useState(false);
+
+  // Never leave the dialog on a dead spinner: if settings do not arrive,
+  // say so and offer a way out.
+  useEffect(() => {
+    if (!open || draft) {
+      setSettingsFailed(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setSettingsFailed(true), 2500);
+    return () => window.clearTimeout(timer);
+  }, [open, draft]);
 
   const loadPlugins = useCallback(() => {
     void api.listPlugins().then(setPluginList).catch(() => setPluginList([]));
@@ -194,7 +205,6 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
     applyTheme(store.theme, {
       accent: base?.accent,
       reducedMotion: base?.reduced_motion,
-      highContrast: base?.high_contrast,
       editorFontSize: base?.editor_font_size,
       editorLineHeight: base?.editor_line_height,
       readingWidth: base?.reading_width,
@@ -268,6 +278,24 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
     }
   };
 
+  // Unsaved-changes indicator: the draft is compared against the stored
+  // settings so the footer can tell the truth about what will be saved.
+  const dirty = useMemo(() => {
+    if (!draft || !settings) return false;
+    const sig = (value: Settings, excluded: string[]) =>
+      JSON.stringify({
+        ...value,
+        theme: normalizeTheme(value.theme),
+        excluded_folders: excluded,
+      });
+    const edited = excludedText
+      .split(/\r?\n|,/)
+      .map((entry) => entry.trim())
+      .filter((entry) => entry && !entry.includes(".."))
+      .slice(0, 100);
+    return sig(draft, edited) !== sig(settings, settings.excluded_folders);
+  }, [draft, settings, excludedText]);
+
   const themePreviews = useMemo(
     () => [
       {
@@ -301,10 +329,23 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
       </div>
 
       {!draft ? (
-        <div className="grid flex-1 place-items-center text-[12px] text-fg-muted">
-          <span className="flex items-center gap-2">
-            <Loader2 size={14} className="animate-spin" /> Loading settings…
-          </span>
+        <div className="grid flex-1 place-items-center px-6 text-center text-[12px] text-fg-muted">
+          {settingsFailed ? (
+            <div className="flex flex-col items-center gap-2">
+              <AlertTriangle size={16} className="text-danger" />
+              <span className="text-fg-secondary">Settings could not be loaded.</span>
+              <span className="max-w-[320px] text-[11px] leading-relaxed text-fg-faint">
+                Close this dialog and open it again. If it keeps happening, restart NoteCraft.
+              </span>
+              <button type="button" className="nc-btn nc-btn-outline mt-1" onClick={close}>
+                Close
+              </button>
+            </div>
+          ) : (
+            <span className="flex items-center gap-2">
+              <Loader2 size={14} className="animate-spin" /> Loading settings…
+            </span>
+          )}
         </div>
       ) : (
         <>
@@ -403,19 +444,6 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
                           checked={draft.reduced_motion}
                           onChange={(value) => update("reduced_motion", value)}
                           label="Reduced motion"
-                        />
-                      </div>
-                    </div>
-                    <div className="nc-setting-row">
-                      <div>
-                        <div className="nc-setting-label">High contrast</div>
-                        <div className="nc-setting-hint">Stronger borders and brighter secondary text.</div>
-                      </div>
-                      <div className="nc-setting-control">
-                        <Switch
-                          checked={draft.high_contrast}
-                          onChange={(value) => update("high_contrast", value)}
-                          label="High contrast"
                         />
                       </div>
                     </div>
@@ -1041,7 +1069,7 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
           <div className="nc-modal-foot">
             <span className="mr-auto flex items-center gap-1.5 text-[10.5px] text-fg-faint">
               {normalizeTheme(draft.theme) === "dark" ? <Moon size={11} /> : <Sun size={11} />}
-              Changes preview live
+              {dirty ? "Unsaved changes — preview applies live" : "All changes saved"}
             </span>
             <button type="button" className="nc-btn nc-btn-outline" onClick={close}>
               Cancel

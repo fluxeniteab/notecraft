@@ -278,6 +278,14 @@ textarea {
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+/* Centred dialogs animate scale but keep the translate that centres them:
+   a scale-only keyframe would override `translate(-50%, -50%)` on the
+   animated element and push the dialog off-screen. */
+@keyframes nc-modal-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.97); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
 @keyframes nc-slide-up {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
@@ -1427,6 +1435,7 @@ textarea {
   transform: translate(-50%, -50%);
   z-index: 61;
   width: min(680px, calc(100vw - 48px));
+  max-width: calc(100vw - 24px);
   max-height: min(82vh, 760px);
   display: flex;
   flex-direction: column;
@@ -1435,7 +1444,7 @@ textarea {
   background: linear-gradient(180deg, var(--nc-elev), var(--nc-surface));
   box-shadow: var(--nc-shadow-lg);
   overflow: hidden;
-  animation: nc-scale-in var(--nc-dur-slow) var(--nc-ease) both;
+  animation: nc-modal-in var(--nc-dur-slow) var(--nc-ease) both;
 }
 
 .nc-modal-head {
@@ -1634,8 +1643,9 @@ textarea {
  * ---------------------------------------------------------------- */
 
 .nc-settings {
-  width: min(760px, calc(100vw - 48px));
-  height: min(78vh, 680px);
+  width: min(920px, calc(100vw - 32px));
+  height: min(86vh, 760px);
+  max-height: calc(100vh - 24px);
 }
 .nc-settings-layout {
   display: flex;
@@ -1643,7 +1653,7 @@ textarea {
   flex: 1;
 }
 .nc-settings-nav {
-  width: 176px;
+  width: 190px;
   flex: 0 0 auto;
   padding: 12px 8px;
   border-right: 1px solid var(--nc-border);
@@ -1651,6 +1661,7 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  overflow-y: auto;
 }
 .nc-settings-nav-btn {
   display: flex;
@@ -1693,6 +1704,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
   min-height: 40px;
   padding: 7px 0;
@@ -1715,6 +1727,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: 8px;
+  max-width: 100%;
 }
 
 .nc-theme-cards {
@@ -1821,7 +1834,8 @@ textarea {
 }
 
 .nc-range {
-  width: 132px;
+  width: 168px;
+  min-width: 120px;
   accent-color: var(--nc-accent);
 }
 .nc-number {
@@ -2642,23 +2656,12 @@ textarea {
   stroke: var(--nc-accent);
 }
 
-/* High contrast */
-.high-contrast {  --nc-border: #ffffff;
-  --nc-border-strong: #ffffff;
-  --nc-fg-muted: #c8c8d0;
-  --nc-fg-secondary: #e4e4e8;
-}
-[data-theme="light"].high-contrast {
-  --nc-border: #09090b;
-  --nc-border-strong: #09090b;
-  --nc-fg-muted: #3f3f46;
-  --nc-fg-secondary: #27272a;
-}
-
 /* Small screens */
 @media (max-width: 760px) {
   .nc-search-pill { display: none; }
   .nc-welcome-grid { grid-template-columns: 1fr; }
   .nc-settings-nav { width: 48px; }
   .nc-settings-nav-btn span { display: none; }
+  .nc-setting-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .nc-setting-control { width: 100%; }
 }

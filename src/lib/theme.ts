@@ -3,7 +3,6 @@ import type { Theme } from "./types";
 export interface ThemeOptions {
   accent?: string;
   reducedMotion?: boolean;
-  highContrast?: boolean;
   editorFontSize?: number;
   editorLineHeight?: number;
   readingWidth?: number;
@@ -47,7 +46,6 @@ export function applyTheme(theme: Theme, options: ThemeOptions = {}) {
   root.classList.toggle("dark", theme === "dark");
   root.classList.toggle("light", theme === "light");
   root.classList.toggle("reduced-motion", !!options.reducedMotion);
-  root.classList.toggle("high-contrast", !!options.highContrast);
 
   if (options.accent) {
     const rgb = hexToRgb(options.accent);
