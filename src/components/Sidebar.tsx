@@ -498,14 +498,15 @@ export default function Sidebar() {
               </div>
             )}
           </div>
-        )}
-      </div>
+        )}        </div>
 
+      <div className="nc-workspace-wrapper">
       <div className="nc-sidebar-footer">
         <FileText size={11} className="shrink-0" />
         <span className="shrink-0 tabular-nums">{noteCount} notes</span>
         <div className="flex-1" />
         <span className="nc-vault-path" title={vaultRoot}>{vaultRoot}</span>
+      </div>
       </div>
 
       {menu && (
