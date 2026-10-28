@@ -1,0 +1,53 @@
+name: macOS Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  macos_release:
+    name: Build macOS release
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend deps
+        run: bun install --frozen-lockfile
+
+      - name: Build DMG
+        run: bun run tauri build --bundles dmg
+
+      - name: Upload macOS bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: notecraft-macos
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attach bundles to the GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" \
+              --title "NoteCraft $GITHUB_REF_NAME" \
+              --notes "NoteCraft $GITHUB_REF_NAME" \
+              --verify-tag
+          gh release upload "$GITHUB_REF_NAME" src-tauri/target/release/bundle/dmg/*.dmg --clobber
