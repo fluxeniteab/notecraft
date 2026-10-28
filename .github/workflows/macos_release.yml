@@ -28,7 +28,16 @@ jobs:
       - name: Install frontend deps
         run: bun install --frozen-lockfile
 
+      # Signing and notarization activate automatically when the Apple secrets
+      # exist (see docs/SIGNING.md). Without them the DMG is unsigned.
       - name: Build DMG
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bun run tauri build --bundles dmg
 
       - name: Upload macOS bundles

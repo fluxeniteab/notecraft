@@ -14,6 +14,15 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+    env:
+      # Azure Trusted Signing — see docs/SIGNING.md. Empty values mean the
+      # installers are built unsigned.
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_ENDPOINT: ${{ secrets.AZURE_ENDPOINT }}
+      AZURE_CODE_SIGNING_ACCOUNT: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT }}
+      AZURE_CERTIFICATE_PROFILE: ${{ secrets.AZURE_CERTIFICATE_PROFILE }}
     steps:
       - uses: actions/checkout@v4
 
@@ -28,7 +37,30 @@ jobs:
       - name: Install frontend deps
         run: bun install --frozen-lockfile
 
-      - name: Build installers
+      - name: Configure Trusted Signing
+        if: env.AZURE_CODE_SIGNING_ACCOUNT != ''
+        shell: bash
+        run: |
+          bun install -g trusted-signing-cli
+          cat > signing.trusted.json <<JSON
+          {
+            "bundle": {
+              "windows": {
+                "signCommand": {
+                  "cmd": "trusted-signing-cli",
+                  "args": ["-e", "${AZURE_ENDPOINT}", "-a", "${AZURE_CODE_SIGNING_ACCOUNT}", "-c", "${AZURE_CERTIFICATE_PROFILE}", "%1"]
+                }
+              }
+            }
+          }
+          JSON
+
+      - name: Build signed installers
+        if: env.AZURE_CODE_SIGNING_ACCOUNT != ''
+        run: bun run tauri build --bundles msi,nsis --config signing.trusted.json
+
+      - name: Build installers (unsigned)
+        if: env.AZURE_CODE_SIGNING_ACCOUNT == ''
         run: bun run tauri build --bundles msi,nsis
 
       - name: Upload Windows bundles
