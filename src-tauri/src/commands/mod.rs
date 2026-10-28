@@ -155,7 +155,7 @@ pub fn create_profile(
     app: AppHandle,
     state: State<AppState>,
 ) -> AppResult<crate::secure::ProfileSummary> {
-    let profile = crate::secure::create_profile(&username, &password)?;
+    crate::secure::create_profile(&username, &password)?;
     let profile = crate::secure::unlock(&username, &password)?;
     attach_profile(&app, &state, &profile)?;
     Ok(profile)
@@ -193,14 +193,14 @@ pub fn change_profile_password(
 
 #[tauri::command]
 pub fn delete_profile(username: String, password: String, state: State<AppState>) -> AppResult<()> {
-    if state
-        .inner
-        .lock()
-        .session
-        .as_ref()
-        .map(|session| session.username.eq_ignore_ascii_case(&username))
-        .unwrap_or(false)
-    {
+    let is_current = {
+        let g = state.inner.lock();
+        g.session
+            .as_ref()
+            .map(|session| session.username.eq_ignore_ascii_case(&username))
+            .unwrap_or(false)
+    };
+    if is_current {
         end_profile_session(&state);
     }
     crate::secure::delete_profile(&username, &password)
@@ -1310,9 +1310,14 @@ pub fn sync_status(state: State<AppState>) -> AppResult<serde_json::Value> {
 }
 
 // ---------- security ----------
+/// Legacy entry point. Changing a profile password needs the current password
+/// (the vault is re-encrypted), so this points callers at the real command
+/// instead of silently setting a password nothing reads.
 #[tauri::command]
-pub fn set_vault_password(password: String, state: State<AppState>) -> AppResult<()> {
-    crate::security::set_password(&state, &password)
+pub fn set_vault_password(_password: String, _state: State<AppState>) -> AppResult<()> {
+    Err(crate::error::AppError::Invalid(
+        "use change_profile_password: changing the password requires the current one".into(),
+    ))
 }
 
 // ---------- import/export ----------

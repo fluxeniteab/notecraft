@@ -114,8 +114,7 @@ export const api = {
   uninstallPlugin: (id: string) => invoke<void>("uninstall_plugin", { id }),
   // sync
   syncStatus: () => invoke<unknown>("sync_status"),
-  // security
-  setVaultPassword: (password: string) => invoke<void>("set_vault_password", { password }),
+  // security (profile passwords are managed through changeProfilePassword)
   // import/export
   importVault: (src: string, dest: string) => invoke<{ imported: number; brokenLinks: string[] }>("import_vault", { src, dest }),
   exportHtml: (rel: string) => invoke<string>("export_html", { rel }),
