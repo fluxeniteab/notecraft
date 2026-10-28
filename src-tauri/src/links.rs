@@ -245,18 +245,32 @@ pub fn rename_wikilink_targets(
 /// entries. Returns the new content and the number of replacements.
 pub fn rename_tag_in_content(content: &str, from: &str, to: &str) -> (String, usize) {
     let mut count = 0usize;
-    // Inline #tag; a parent rename also rewrites its nested children.
-    let inline = regex::Regex::new(&format!(
-        r"(?m)(^|[\s(])#{}(?=[\s\]#/,]|$)",
-        regex::escape(from)
-    ))
-    .unwrap();
-    let mut out = inline
-        .replace_all(content, |caps: &regex::Captures| {
-            count += 1;
-            format!("{}#{}", &caps[1], to)
-        })
-        .into_owned();
+    // Inline #tag; a parent rename also rewrites its nested children. The
+    // `regex` crate has no look-around, so the boundary check for the
+    // character *after* the tag is done by hand and candidates are rebuilt
+    // from the original content, never consuming neighbouring text.
+    let inline = regex::Regex::new(&format!(r"(?m)(^|[\s(])#({})", regex::escape(from))).unwrap();
+    let mut out = String::with_capacity(content.len());
+    let mut last = 0usize;
+    for caps in inline.captures_iter(content) {
+        let whole = caps.get(0).unwrap();
+        let tag = caps.get(2).unwrap();
+        let valid = match content[tag.end()..].chars().next() {
+            // End of text, or a character that cannot be part of a tag.
+            None => true,
+            Some(c) => !(c.is_alphanumeric() || c == '_' || c == '-'),
+        };
+        if !valid {
+            continue;
+        }
+        out.push_str(&content[last..whole.start()]);
+        // Keep the prefix and the `#`, replace only the tag itself.
+        out.push_str(&content[whole.start()..tag.start()]);
+        out.push_str(to);
+        last = tag.end();
+        count += 1;
+    }
+    out.push_str(&content[last..]);
     // `tags: one, two` scalar / flow-list values: keep everything before the
     // tag intact so `tags: [work, old]` becomes `tags: [work, archived]`.
     let scalar = regex::Regex::new(&format!(
@@ -264,12 +278,13 @@ pub fn rename_tag_in_content(content: &str, from: &str, to: &str) -> (String, us
         regex::escape(from)
     ))
     .unwrap();
-    out = scalar
+    let after_scalar = scalar
         .replace_all(&out, |caps: &regex::Captures| {
             count += 1;
             format!("{}{}", &caps[1], to)
         })
         .into_owned();
+    out = after_scalar;
     // `- tag` entries inside a block list.
     let list = regex::Regex::new(&format!(r"(?m)^(\s*-\s*){}\s*$", regex::escape(from))).unwrap();
     let out = list.replace_all(&out, |caps: &regex::Captures| {
