@@ -30,6 +30,8 @@ export interface TaskRef {
   text: string;
   done: boolean;
   indent: number;
+  due?: string | null;
+  priority?: string | null;
 }
 
 export interface ParsedNote {
@@ -59,7 +61,42 @@ export interface Settings {
   high_contrast: boolean;
   telemetry_opt_in: boolean;
   semantic_search_enabled: boolean;
+  daily_note_folder: string;
+  daily_note_template: string | null;
+  capture_note: string;
+  explorer_sort: "name" | "modified" | "size";
+  explorer_group_dirs: boolean;
+  shortcuts: Record<string, string>;
+  writing_goal_words: number;
+  sync_folder?: string | null;
   data_dir?: string | null;
+}
+
+export interface CollectionConfig {
+  id: string;
+  name: string;
+  config: {
+    view?: "table" | "list" | "kanban" | "calendar";
+    folder?: string;
+    tag?: string;
+    property?: string;
+    sort?: string;
+  };
+}
+
+export interface SyncFileStatus {
+  path: string;
+  status: "in_sync" | "local_newer" | "remote_newer" | "conflict" | "local_only" | "remote_only";
+}
+
+export interface TaskItem {
+  id: number | null;
+  note_path: string;
+  line: number;
+  text: string;
+  done: boolean;
+  due: string | null;
+  priority: string | null;
 }
 
 export interface SearchResult {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { toast } from "sonner";
 import {
@@ -18,17 +18,20 @@ import {
 import { useAppStore } from "../store/appStore";
 import { applyTheme, normalizeTheme } from "../lib/theme";
 import { persistSettings } from "../lib/settingsActions";
-import type { Settings, Theme } from "../lib/types";
+import { api } from "../lib/tauri";
+import type { Settings, SyncFileStatus, Theme } from "../lib/types";
 import { Switch, Kbd, Modal } from "./ui";
+import { Puzzle, RefreshCw } from "lucide-react";
 
 const accents = ["#8b5cf6", "#6366f1", "#3b82f6", "#06b6d4", "#10b981", "#f59e0b", "#f43f5e"];
 
-type Section = "appearance" | "editor" | "files" | "about";
+type Section = "appearance" | "editor" | "files" | "plugins" | "about";
 
 const sections: Array<{ id: Section; label: string; icon: React.ReactNode }> = [
   { id: "appearance", label: "Appearance", icon: <Palette size={14} /> },
   { id: "editor", label: "Editor", icon: <Type size={14} /> },
   { id: "files", label: "Files & history", icon: <FileCog size={14} /> },
+  { id: "plugins", label: "Plugins", icon: <Puzzle size={14} /> },
   { id: "about", label: "About", icon: <Info size={14} /> },
 ];
 
@@ -87,6 +90,27 @@ function coerceSettings(base: Settings, raw: unknown): Settings {
     high_contrast: bool("high_contrast", base.high_contrast),
     telemetry_opt_in: false,
     semantic_search_enabled: false,
+    daily_note_folder: typeof data.daily_note_folder === "string" ? data.daily_note_folder.slice(0, 160) : base.daily_note_folder,
+    daily_note_template: typeof data.daily_note_template === "string" ? data.daily_note_template.slice(0, 240) : base.daily_note_template,
+    capture_note:
+      typeof data.capture_note === "string" && data.capture_note.trim()
+        ? data.capture_note.slice(0, 240)
+        : base.capture_note,
+    explorer_sort:
+      data.explorer_sort === "modified" || data.explorer_sort === "size" || data.explorer_sort === "name"
+        ? data.explorer_sort
+        : base.explorer_sort,
+    explorer_group_dirs: bool("explorer_group_dirs", base.explorer_group_dirs),
+    shortcuts:
+      data.shortcuts && typeof data.shortcuts === "object" && !Array.isArray(data.shortcuts)
+        ? (Object.fromEntries(
+            Object.entries(data.shortcuts as Record<string, unknown>).filter(
+              (entry): entry is [string, string] => typeof entry[1] === "string"
+            )
+          ) as Record<string, string>)
+        : base.shortcuts,
+    writing_goal_words: clamp(numberOr(data.writing_goal_words, base.writing_goal_words), 0, 100000),
+    sync_folder: typeof data.sync_folder === "string" ? data.sync_folder : base.sync_folder ?? null,
     data_dir: typeof data.data_dir === "string" ? data.data_dir : base.data_dir,
   };
 }
@@ -104,12 +128,49 @@ function applyDraft(theme: Theme, draft: Settings) {
 
 export default function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const settings = useAppStore((s) => s.settings);
+  const vaultRoot = useAppStore((s) => s.vaultRoot);
+  const [allTemplates, setAllTemplates] = useState<Array<{ path: string; name: string }>>([]);
   const [section, setSection] = useState<Section>("appearance");
   const [draft, setDraft] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [excludedText, setExcludedText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pluginList, setPluginList] = useState<
+    Array<{ id: string; name: string; version: string; description: string; enabled: boolean; permissions: string[] }>
+  >([]);
+  const [catalog, setCatalog] = useState<
+    Array<{ id: string; name: string; version: string; description: string; installed: boolean }>
+  >([]);
+  const [syncStatuses, setSyncStatuses] = useState<SyncFileStatus[] | null>(null);
+  const [syncBusy, setSyncBusy] = useState<"push" | "pull" | "refresh" | null>(null);
+
+  const loadPlugins = useCallback(() => {
+    void api.listPlugins().then(setPluginList).catch(() => setPluginList([]));
+    void api.pluginCatalog().then(setCatalog).catch(() => setCatalog([]));
+  }, []);
+
+  const refreshSync = useCallback(async () => {
+    try {
+      setSyncStatuses(await api.syncStatusFolder());
+    } catch {
+      setSyncStatuses(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    loadPlugins();
+    void refreshSync();
+  }, [open, loadPlugins, refreshSync]);
+
+  useEffect(() => {
+    if (!open || !vaultRoot) {
+      setAllTemplates([]);
+      return;
+    }
+    void api.listTemplates().then(setAllTemplates).catch(() => setAllTemplates([]));
+  }, [open, vaultRoot]);
 
   useEffect(() => {
     if (!open) return;
@@ -167,6 +228,13 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
       autosave_ms: clamp(draft.autosave_ms, 200, 5000),
       snapshot_interval_min: clamp(draft.snapshot_interval_min, 1, 120),
       snapshot_retention: clamp(draft.snapshot_retention, 1, 500),
+      daily_note_folder: draft.daily_note_folder.trim().replace(/[/\\]+/g, "/").replace(/^[/\\]+|[/\\]+$/g, "") || "daily",
+      daily_note_template: draft.daily_note_template?.trim() || null,
+      capture_note:
+        draft.capture_note.trim().replace(/[/\\]+/g, "/").replace(/^[/\\]+|[/\\]+$/g, "") ||
+        "inbox.md",
+      explorer_sort: draft.explorer_sort === "modified" || draft.explorer_sort === "size" ? draft.explorer_sort : "name",
+      writing_goal_words: clamp(Math.round(draft.writing_goal_words), 0, 100000),
     };
     useAppStore.getState().setTheme(next.theme);
     await persistSettings(next);
@@ -495,6 +563,80 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
               {section === "files" && (
                 <>
                   <div className="nc-setting-group">
+                    <div className="nc-setting-group-title">Daily notes</div>
+                    <div className="nc-setting-row">
+                      <div>
+                        <div className="nc-setting-label">Daily note folder</div>
+                        <div className="nc-setting-hint">Vault-relative folder used for YYYY-MM-DD notes.</div>
+                      </div>
+                      <div className="nc-setting-control">
+                        <input
+                          className="nc-input !h-8 !w-40"
+                          value={draft.daily_note_folder}
+                          onChange={(event) => update("daily_note_folder", event.target.value.replace(/[/\\]+/g, "/").replace(/^[/\\]+|[/\\]+$/g, ""))}
+                          aria-label="Daily note folder"
+                        />
+                      </div>
+                    </div>
+                    <div className="nc-setting-row">
+                      <div>
+                        <div className="nc-setting-label">Daily note template</div>
+                        <div className="nc-setting-hint">Optional Markdown template path, such as templates/daily.md.</div>
+                      </div>
+                      <div className="nc-setting-control">
+                        <select className="nc-select max-w-48" value={draft.daily_note_template ?? ""} onChange={(event) => update("daily_note_template", event.target.value || null)} aria-label="Daily note template">
+                          <option value="">Default heading</option>
+                          {allTemplates.map((template) => <option key={template.path} value={template.path}>{template.path}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="nc-setting-group-title">Quick capture</div>
+                    <div className="nc-setting-row">
+                      <div>
+                        <div className="nc-setting-label">Capture note</div>
+                        <div className="nc-setting-hint">Quick capture (Ctrl ⇧ N) appends bullets to this note.</div>
+                      </div>
+                      <div className="nc-setting-control">
+                        <input
+                          className="nc-input !h-8 !w-40"
+                          value={draft.capture_note}
+                          onChange={(event) => update("capture_note", event.target.value)}
+                          aria-label="Capture note path"
+                        />
+                      </div>
+                    </div>
+                    <div className="nc-setting-group-title">Explorer</div>
+                    <div className="nc-setting-row">
+                      <div>
+                        <div className="nc-setting-label">Sort files by</div>
+                        <div className="nc-setting-hint">Applies to the file tree.</div>
+                      </div>
+                      <div className="nc-setting-control">
+                        <select
+                          className="nc-select max-w-40"
+                          value={draft.explorer_sort}
+                          onChange={(event) => update("explorer_sort", event.target.value as Settings["explorer_sort"])}
+                          aria-label="Explorer sort order"
+                        >
+                          <option value="name">Name</option>
+                          <option value="modified">Modified</option>
+                          <option value="size">Size</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="nc-setting-row">
+                      <div>
+                        <div className="nc-setting-label">Folders first</div>
+                        <div className="nc-setting-hint">Group folders above files when sorting.</div>
+                      </div>
+                      <div className="nc-setting-control">
+                        <Switch
+                          checked={draft.explorer_group_dirs}
+                          onChange={(value) => update("explorer_group_dirs", value)}
+                          label="Folders first"
+                        />
+                      </div>
+                    </div>
                     <div className="nc-setting-group-title">Vault files</div>
                     <div className="nc-setting-row">
                       <div>
@@ -525,6 +667,125 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
                         className="nc-input h-auto resize-y py-2 font-mono text-[11px]"
                       />
                     </div>
+                  </div>
+
+                  <div className="nc-setting-group">
+                    <div className="nc-setting-group-title">Sync folder (optional)</div>
+                    <div className="nc-setting-row">
+                      <div>
+                        <div className="nc-setting-label">Mirror this vault to a folder</div>
+                        <div className="nc-setting-hint">
+                          A local folder you control — a mounted drive or a Dropbox/Syncthing
+                          folder. Conflicts are reported, never overwritten.
+                        </div>
+                      </div>
+                      <div className="nc-setting-control">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            className="nc-input !h-8 !w-48 font-mono !text-[10.5px]"
+                            value={draft.sync_folder ?? ""}
+                            placeholder="Not configured"
+                            readOnly
+                            aria-label="Sync folder path"
+                          />
+                          <button
+                            type="button"
+                            className="nc-btn nc-btn-outline !h-8 !px-2 text-[10px]"
+                            onClick={async () => {
+                              try {
+                                const { open: pickDirectory } = await import("@tauri-apps/plugin-dialog");
+                                const picked = await pickDirectory({ directory: true, multiple: false });
+                                const folder = Array.isArray(picked) ? picked[0] : picked;
+                                if (!folder) return;
+                                const next = { ...draft, sync_folder: folder };
+                                setDraft(next);
+                                await persistSettings(next);
+                                await refreshSync();
+                                toast.success("Sync folder configured", { description: folder });
+                              } catch (error) {
+                                toast.error("Could not choose a folder", { description: String(error) });
+                              }
+                            }}
+                          >
+                            Choose…
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    {syncStatuses && (
+                      <div className="nc-setting-row">
+                        <div>
+                          <div className="nc-setting-label">
+                            {syncStatuses.filter((s) => s.status === "in_sync").length} in sync
+                            {syncStatuses.filter((s) => s.status === "local_only" || s.status === "local_newer").length > 0 &&
+                              ` · ${syncStatuses.filter((s) => s.status === "local_only" || s.status === "local_newer").length} to push`}
+                            {syncStatuses.filter((s) => s.status === "remote_only" || s.status === "remote_newer").length > 0 &&
+                              ` · ${syncStatuses.filter((s) => s.status === "remote_only" || s.status === "remote_newer").length} to pull`}
+                            {syncStatuses.filter((s) => s.status === "conflict").length > 0 &&
+                              ` · ${syncStatuses.filter((s) => s.status === "conflict").length} conflicts`}
+                          </div>
+                          <div className="nc-setting-hint">Markdown files compared with the sync folder.</div>
+                        </div>
+                        <div className="nc-setting-control flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            className="nc-btn nc-btn-ghost !h-7 !px-2 text-[10px]"
+                            disabled={syncBusy !== null}
+                            onClick={async () => {
+                              setSyncBusy("refresh");
+                              await refreshSync();
+                              setSyncBusy(null);
+                            }}
+                          >
+                            <RefreshCw size={11} className={syncBusy === "refresh" ? "animate-spin" : undefined} /> Refresh
+                          </button>
+                          <button
+                            type="button"
+                            className="nc-btn nc-btn-outline !h-7 !px-2 text-[10px]"
+                            disabled={syncBusy !== null}
+                            onClick={async () => {
+                              setSyncBusy("push");
+                              try {
+                                const result = await api.syncPush();
+                                const conflicts = result.filter((s) => s.status === "conflict").length;
+                                toast.success("Push complete", {
+                                  description: conflicts ? `${conflicts} conflict(s) left untouched.` : "Vault copied to the sync folder.",
+                                });
+                                setSyncStatuses(result);
+                              } catch (error) {
+                                toast.error("Push failed", { description: String(error) });
+                              } finally {
+                                setSyncBusy(null);
+                              }
+                            }}
+                          >
+                            <Upload size={11} /> Push
+                          </button>
+                          <button
+                            type="button"
+                            className="nc-btn nc-btn-outline !h-7 !px-2 text-[10px]"
+                            disabled={syncBusy !== null}
+                            onClick={async () => {
+                              setSyncBusy("pull");
+                              try {
+                                const result = await api.syncPull();
+                                const conflicts = result.filter((s) => s.status === "conflict").length;
+                                toast.success("Pull complete", {
+                                  description: conflicts ? `${conflicts} conflict(s) left untouched.` : "Sync folder merged into the vault.",
+                                });
+                                setSyncStatuses(result);
+                              } catch (error) {
+                                toast.error("Pull failed", { description: String(error) });
+                              } finally {
+                                setSyncBusy(null);
+                              }
+                            }}
+                          >
+                            <Download size={11} /> Pull
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="nc-setting-group">
@@ -574,6 +835,114 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
                           aria-label="Snapshot retention"
                         />
                       </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {section === "plugins" && (
+                <>
+                  <div className="nc-setting-group">
+                    <div className="nc-setting-group-title">Installed plugins</div>
+                    {pluginList.length === 0 ? (
+                      <div className="nc-setting-hint">No plugins installed yet — pick one from the catalog below.</div>
+                    ) : (
+                      pluginList.map((plugin) => (
+                        <div key={plugin.id} className="nc-setting-row">
+                          <div>
+                            <div className="nc-setting-label">
+                              {plugin.name} <span className="text-fg-faint">v{plugin.version}</span>
+                            </div>
+                            <div className="nc-setting-hint">{plugin.description}</div>
+                            {plugin.permissions.length > 0 && (
+                              <div className="mt-1.5 flex flex-wrap gap-1">
+                                {plugin.permissions.map((permission) => (
+                                  <span key={permission} className="nc-chip !py-0 !text-[9px]">{permission}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="nc-setting-control flex items-center gap-2">
+                            <Switch
+                              checked={plugin.enabled}
+                              onChange={(value) => {
+                                void api
+                                  .enablePlugin(plugin.id, value)
+                                  .then(loadPlugins)
+                                  .catch((error) =>
+                                    toast.error("Could not change plugin state", { description: String(error) })
+                                  );
+                              }}
+                              label={`Enable ${plugin.name}`}
+                            />
+                            <button
+                              type="button"
+                              className="nc-btn nc-btn-ghost !h-7 !px-2 text-[10px]"
+                              onClick={() => {
+                                void api
+                                  .uninstallPlugin(plugin.id)
+                                  .then(() => {
+                                    loadPlugins();
+                                    toast.success("Plugin removed", { description: plugin.name });
+                                  })
+                                  .catch((error) =>
+                                    toast.error("Could not remove plugin", { description: String(error) })
+                                  );
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="nc-setting-group">
+                    <div className="nc-setting-group-title">Marketplace</div>
+                    {catalog.length === 0 ? (
+                      <div className="nc-setting-hint">The bundled catalog is unavailable in this build.</div>
+                    ) : (
+                      catalog.map((entry) => (
+                        <div key={entry.id} className="nc-setting-row">
+                          <div>
+                            <div className="nc-setting-label">
+                              {entry.name} <span className="text-fg-faint">v{entry.version}</span>
+                            </div>
+                            <div className="nc-setting-hint">{entry.description}</div>
+                          </div>
+                          <div className="nc-setting-control">
+                            <button
+                              type="button"
+                              className="nc-btn nc-btn-outline !h-7 !px-2 text-[10px]"
+                              disabled={entry.installed}
+                              onClick={() => {
+                                void api
+                                  .installCatalogPlugin(entry.id)
+                                  .then(() => {
+                                    loadPlugins();
+                                    toast.success("Plugin installed", { description: entry.name });
+                                  })
+                                  .catch((error) =>
+                                    toast.error("Could not install plugin", { description: String(error) })
+                                  );
+                              }}
+                            >
+                              {entry.installed ? (
+                                <>
+                                  <Check size={11} /> Installed
+                                </>
+                              ) : (
+                                "Install"
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    <div className="nc-setting-hint mt-2">
+                      Plugins declare their permissions, stay disabled until you enable them, and can
+                      be removed at any time.
                     </div>
                   </div>
                 </>

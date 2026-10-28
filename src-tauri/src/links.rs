@@ -202,3 +202,111 @@ pub fn unlinked_mentions(conn: &Connection, note_name: &str) -> AppResult<Vec<St
     }
     Ok(out)
 }
+
+/// Replace `[[Old]]`-style references (any spelling: with folder, `.md`,
+/// heading or alias) with the new target, preserving heading/alias suffixes.
+/// Returns the new content and how many links were rewritten.
+pub fn rename_wikilink_targets(
+    content: &str,
+    from_no_ext: &str,
+    from_stem: &str,
+    to_display: &str,
+) -> (String, usize) {
+    let re = regex::Regex::new(r"\[\[([^\]]+)\]\]").unwrap();
+    let mut count = 0usize;
+    let out = re.replace_all(content, |caps: &regex::Captures| {
+        let inner = &caps[1];
+        let split_at = inner.find(['#', '|']).unwrap_or(inner.len());
+        let target = inner[..split_at].trim();
+        let suffix = &inner[split_at..];
+        let target_no_ext = target.trim_end_matches(".md");
+        let matches = target_no_ext == from_no_ext
+            || target_no_ext == from_stem
+            || (from_stem.contains('/')
+                && target_no_ext == from_stem.rsplit('/').next().unwrap_or(target_no_ext));
+        if !matches {
+            return caps[0].to_string();
+        }
+        count += 1;
+        format!("[[{}{}]]", to_display, suffix)
+    });
+    (out.into_owned(), count)
+}
+
+/// Rename an inline/frontmatter tag. Handles `#tag` in the body (including
+/// nested `#parent/child` prefixes), `tags:` scalar lines and `- item` tag list
+/// entries. Returns the new content and the number of replacements.
+pub fn rename_tag_in_content(content: &str, from: &str, to: &str) -> (String, usize) {
+    let mut count = 0usize;
+    // Inline #tag; a parent rename also rewrites its nested children.
+    let inline = regex::Regex::new(&format!(
+        r"(?m)(^|[\s(])#{}(?=[\s\]#/,]|$)",
+        regex::escape(from)
+    ))
+    .unwrap();
+    let mut out = inline.replace_all(content, |caps: &regex::Captures| {
+        count += 1;
+        format!("{}#{}", &caps[1], to)
+    });
+    // `tags: one, two` scalar / flow-list values: keep everything before the
+    // tag intact so `tags: [work, old]` becomes `tags: [work, archived]`.
+    let scalar = regex::Regex::new(&format!(
+        r"(?m)^(tags:\s*[^\n#]*?)\b{}\b",
+        regex::escape(from)
+    ))
+    .unwrap();
+    out = scalar
+        .replace_all(&out, |caps: &regex::Captures| {
+            count += 1;
+            format!("{}{}", &caps[1], to)
+        })
+        .into_owned();
+    // `- tag` entries inside a block list.
+    let list = regex::Regex::new(&format!(r"(?m)^(\s*-\s*){}\s*$", regex::escape(from))).unwrap();
+    let out = list.replace_all(&out, |caps: &regex::Captures| {
+        count += 1;
+        format!("{}{}", &caps[1], to)
+    });
+    (out.into_owned(), count)
+}
+
+#[cfg(test)]
+mod rename_tests {
+    use super::*;
+
+    #[test]
+    fn renames_every_wikilink_spelling() {
+        let content = "See [[Old]] and [[folder/Old.md]] and [[Old#Heading|Alias]] and [[New]].";
+        let (out, n) = rename_wikilink_targets(content, "folder/Old", "Old", "New");
+        assert_eq!(n, 3);
+        assert!(
+            out.contains("See [[New]] and [[New]] and [[New#Heading|Alias]] and [[New]]."),
+            "unexpected: {out}"
+        );
+        assert!(!out.contains("[[Old"));
+    }
+
+    #[test]
+    fn renames_inline_and_frontmatter_tags() {
+        let content = "---\ntags: [work, old]\n---\n\n#old and #old/child done\n";
+        let (out, n) = rename_tag_in_content(content, "old", "archived");
+        assert!(n >= 3, "expected at least 3 replacements, got {n}: {out}");
+        assert!(out.contains("#archived"));
+        assert!(out.contains("#archived/child"));
+        assert!(!out.contains("old"));
+    }
+
+    #[test]
+    fn renames_nested_tag_parent_prefix() {
+        let (out, n) = rename_tag_in_content("topic #project/alpha here", "project/alpha", "alpha");
+        assert_eq!(n, 1);
+        assert_eq!(out, "topic #alpha here");
+    }
+
+    #[test]
+    fn does_not_touch_lookalike_tags() {
+        let (out, n) = rename_tag_in_content("#older and #bold", "old", "new");
+        assert_eq!(n, 0);
+        assert_eq!(out, "#older and #bold");
+    }
+}

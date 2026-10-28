@@ -54,6 +54,7 @@ interface MenuState {
 
 export default function Sidebar() {
   const vaultRoot = useAppStore((s) => s.vaultRoot);
+  const settings = useAppStore((s) => s.settings);
   const files = useAppStore((s) => s.files);
   const allFiles = useAppStore((s) => s.allFiles);
   const tabs = useAppStore((s) => s.tabs);
@@ -71,6 +72,11 @@ export default function Sidebar() {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [pendingLinks, setPendingLinks] = useState<{
+    from: string;
+    to: string;
+    impacts: Array<{ path: string; replacements: number }>;
+  } | null>(null);
 
   const activePath = tabs.find((t) => t.id === activeTabId)?.path ?? null;
 
@@ -174,6 +180,10 @@ export default function Sidebar() {
     remapPaths(entry.path, to);
     await refreshAll();
     toast.success("Renamed", { description: to });
+    if (!entry.is_dir && isMarkdown(to)) {
+      const impacts = await api.propagateLinkRename(entry.path, to, false).catch(() => []);
+      if (impacts.length) setPendingLinks({ from: entry.path, to, impacts });
+    }
   };
 
   const runDelete = async () => {
@@ -237,6 +247,21 @@ export default function Sidebar() {
       { label: "Delete", icon: <Trash2 size={13} />, danger: true, onSelect: () => setConfirm(entry) },
     ];
   };
+
+  // Explorer ordering is configurable: name/modified/size, folders first or mixed.
+  const sortEntries = useCallback(
+    (entries: FileEntry[]): FileEntry[] => {
+      const mode = settings?.explorer_sort ?? "name";
+      const groupDirs = settings?.explorer_group_dirs ?? true;
+      return [...entries].sort((a, b) => {
+        if (groupDirs && a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
+        if (mode === "modified") return b.modified - a.modified;
+        if (mode === "size") return b.size - a.size;
+        return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+      });
+    },
+    [settings]
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -335,7 +360,7 @@ export default function Sidebar() {
         </div>
         {isDir && isOpen && (
           <div className="nc-tree-children">
-            {(children[entry.path] ?? []).map((child) => renderNode(child, depth + 1))}
+            {sortEntries(children[entry.path] ?? []).map((child) => renderNode(child, depth + 1))}
             {!children[entry.path]?.length && !isLoading && (
               <div className="px-2 py-1 text-[10.5px] text-fg-faint" style={{ paddingLeft: 26 + depth * 13 }}>
                 Empty folder
@@ -450,7 +475,7 @@ export default function Sidebar() {
           </div>
         ) : (
           <div className="nc-tree">
-            {files.map((entry) => renderNode(entry, 0))}
+            {sortEntries(files).map((entry) => renderNode(entry, 0))}
             {files.length === 0 && (
               <div className="px-3 py-6 text-center">
                 <p className="text-[11.5px] text-fg-muted">This vault is empty.</p>
@@ -497,6 +522,35 @@ export default function Sidebar() {
         confirmLabel="Move to trash"
         onClose={() => setConfirm(null)}
         onConfirm={runDelete}
+      />
+
+      <ConfirmDialog
+        open={!!pendingLinks}
+        title="Update links to this note?"
+        danger={false}
+        message={
+          pendingLinks ? (
+            <>
+              <span className="text-fg">{pendingLinks.impacts.length}</span>{" "}
+              {pendingLinks.impacts.length === 1 ? "note links" : "notes link"} to{" "}
+              <span className="text-fg">{stem(pendingLinks.from)}</span>. Rewrite those references
+              to <span className="text-fg">{stem(pendingLinks.to)}</span>? The note itself has
+              already been renamed.
+            </>
+          ) : null
+        }
+        confirmLabel="Update links"
+        onClose={() => setPendingLinks(null)}
+        onConfirm={async () => {
+          if (!pendingLinks) return;
+          const impacts = await api.propagateLinkRename(pendingLinks.from, pendingLinks.to, true);
+          const total = impacts.reduce((sum, impact) => sum + impact.replacements, 0);
+          if (total > 0) {
+            toast.success(`Updated ${total} link${total === 1 ? "" : "s"}`, {
+              description: pendingLinks.to,
+            });
+          }
+        }}
       />
     </aside>
   );

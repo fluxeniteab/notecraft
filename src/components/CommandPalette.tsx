@@ -4,9 +4,11 @@ import { Command } from "cmdk";
 import { toast } from "sonner";
 import {
   Command as CommandIcon,
+  CalendarDays,
   FileText,
   FolderOpen,
   FolderPlus,
+  Inbox,
   Loader2,
   LogOut,
   Maximize2,
@@ -23,7 +25,8 @@ import {
 } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { api } from "../lib/tauri";
-import { dirName, stem } from "../lib/files";import { createNote } from "../lib/noteActions";
+import { dirName, stem } from "../lib/files";
+import { createNote } from "../lib/noteActions";
 import { closeCurrentVault, pickVault } from "../lib/vaultActions";
 import { setThemeEverywhere } from "../lib/settingsActions";
 import { Kbd } from "./ui";
@@ -43,12 +46,14 @@ export default function CommandPalette({
   onOpenSettings,
   onOpenGraph,
   onOpenCanvas,
+  onOpenCapture,
 }: {
   open: boolean;
   onClose: () => void;
   onOpenSettings: () => void;
   onOpenGraph: () => void;
   onOpenCanvas: () => void;
+  onOpenCapture: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [notes, setNotes] = useState<Array<{ path: string; title: string; snippet: string }>>([]);
@@ -108,6 +113,33 @@ export default function CommandPalette({
         icon: <Plus size={14} />,
         shortcut: "Ctrl N",
         run: () => void createNote(),
+      },
+      ...(store.vaultRoot
+        ? [{
+            id: "daily-note",
+            label: "Open today’s daily note",
+            hint: "Create it from your configured template if it does not exist",
+            icon: <CalendarDays size={14} />,
+            shortcut: "Ctrl Alt N",
+            run: async () => {
+              try {
+                const path = await api.createDailyNote();
+                await useAppStore.getState().openTab(path);
+              } catch (error) {
+                toast.error("Could not open daily note", { description: String(error) });
+              }
+            },
+          } satisfies PaletteCommand]
+        : []),
+      {
+        id: "quick-capture",
+        label: "Quick capture…",
+        hint: "Jot a note into your capture note without opening a tab",
+        icon: <Inbox size={14} />,
+        shortcut: "Ctrl ⇧ N",
+        run: () => {
+          if (useAppStore.getState().vaultRoot) onOpenCapture();
+        },
       },
       {
         id: "quick-switch",

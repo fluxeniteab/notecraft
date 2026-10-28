@@ -215,11 +215,21 @@ pub fn extract_tasks(body: &str) -> Vec<TaskRef> {
             let indent = cap.get(1).unwrap().as_str().len();
             let done = cap.get(2).unwrap().as_str().to_lowercase() == "x";
             let text = cap.get(3).unwrap().as_str().to_string();
+            let due = Regex::new(r"(?:📅|due:)\s*(\d{4}-\d{2}-\d{2})")
+                .unwrap()
+                .captures(&text)
+                .and_then(|capture| capture.get(1).map(|value| value.as_str().to_string()));
+            let priority = Regex::new(r"(?:⏫|priority:)\s*(highest|high|medium|low|lowest)")
+                .unwrap()
+                .captures(&text.to_lowercase())
+                .and_then(|capture| capture.get(1).map(|value| value.as_str().to_string()));
             out.push(TaskRef {
                 line: i + 1,
                 text,
                 done,
                 indent,
+                due,
+                priority,
             });
         }
     }
@@ -377,6 +387,13 @@ mod tests {
         let ts = extract_tasks(body);
         assert_eq!(ts.len(), 2);
         assert!(ts[1].done);
+    }
+
+    #[test]
+    fn tasks_parse_due_dates_and_priorities() {
+        let tasks = extract_tasks("- [ ] Submit report 📅 2026-11-02 priority: high");
+        assert_eq!(tasks[0].due.as_deref(), Some("2026-11-02"));
+        assert_eq!(tasks[0].priority.as_deref(), Some("high"));
     }
 
     #[test]

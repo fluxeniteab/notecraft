@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { FileEntry, ParsedNote, Settings, SearchResult, GraphData, Snapshot, Workspace, LinkRef } from "./types";
+import { listen } from "@tauri-apps/api/event";
+import type { FileEntry, ParsedNote, Settings, SearchResult, GraphData, Snapshot, Workspace, LinkRef, TaskItem, CollectionConfig, SyncFileStatus } from "./types";
 
 export const api = {
   // vault
@@ -12,6 +13,8 @@ export const api = {
   listAllFiles: () => invoke<FileEntry[]>("list_all_files"),
   readFile: (rel: string) => invoke<string>("read_file", { rel }),
   writeFile: (rel: string, content: string) => invoke<void>("write_file", { rel, content }),
+  writeFileIfUnchanged: (rel: string, content: string, expected: string) =>
+    invoke<void>("write_file_if_unchanged", { rel, content, expected }),
   createFile: (rel: string, content: string) => invoke<void>("create_file", { rel, content }),
   createDir: (rel: string) => invoke<void>("create_dir", { rel }),
   deletePath: (rel: string, trash: boolean) => invoke<void>("delete_path", { rel, trash }),
@@ -22,6 +25,11 @@ export const api = {
   renderHtml: (content: string) => invoke<string>("render_html", { content }),
   // search
   search: (query: string, filters?: Record<string, unknown>) => invoke<SearchResult[]>("search", { query, filters: filters ?? {} }),
+  saveSearch: (id: string, name: string, query: string, filters: Record<string, unknown>) =>
+    invoke<void>("save_search", { id, name, query, filters }),
+  listSavedSearches: () => invoke<Array<{ id: string; name: string; query: string; filters: Record<string, unknown> }>>("list_saved_searches"),
+  deleteSavedSearch: (id: string) => invoke<void>("delete_saved_search", { id }),
+  searchHistory: () => invoke<string[]>("search_history"),
   rebuildIndex: () => invoke<void>("rebuild_index"),
   indexStatus: () => invoke<{ total: number; indexed: number; status: string }>("index_status"),
   // links
@@ -38,11 +46,31 @@ export const api = {
   restoreSnapshot: (id: string) => invoke<void>("restore_snapshot", { id }),
   diffSnapshots: (a: string, b: string) => invoke<string>("diff_snapshots", { a, b }),
   // tasks
-  listTasks: (rel?: string) => invoke<unknown[]>("list_tasks", { rel }),
+  listTasks: (rel?: string) => invoke<TaskItem[]>("list_tasks", { rel }),
   setTaskDone: (rel: string, line: number, done: boolean) => invoke<void>("set_task_done", { rel, line, done }),
   // templates
   listTemplates: () => invoke<{ path: string; name: string }[]>("list_templates"),
   renderTemplate: (path: string, vars: Record<string, string>) => invoke<string>("render_template", { path, vars }),
+  createDailyNote: (date?: string) => invoke<string>("create_daily_note", { date }),
+  appendCapture: (text: string) => invoke<string>("append_capture", { text }),
+  // collections (dynamic views)
+  listCollections: () => invoke<CollectionConfig[]>("list_collections"),
+  saveCollection: (id: string, name: string, config: CollectionConfig["config"]) =>
+    invoke<void>("save_collection", { id, name, config }),
+  deleteCollection: (id: string) => invoke<void>("delete_collection", { id }),
+  collectionNotes: (id: string) => invoke<Array<{ path: string; title: string; properties: Record<string, string>; tags: string[]; modified: number; due?: string | null }>>("collection_notes", { id }),
+  // links & tags
+  unlinkedMentions: (target: string) => invoke<Array<{ path: string; line: number; text: string }>>("unlinked_mentions", { target }),
+  propagateLinkRename: (from: string, to: string, apply: boolean) =>
+    invoke<{ path: string; replacements: number }[]>("propagate_link_rename", { from, to, apply }),
+  renameTag: (from: string, to: string) => invoke<number>("rename_tag", { from, to }),
+  // sync (folder provider)
+  syncPush: () => invoke<SyncFileStatus[]>("sync_push"),
+  syncPull: () => invoke<SyncFileStatus[]>("sync_pull"),
+  syncStatusFolder: () => invoke<SyncFileStatus[]>("sync_status_folder"),
+  // plugins
+  pluginCatalog: () => invoke<Array<{ id: string; name: string; version: string; description: string; installed: boolean }>>("plugin_catalog"),
+  installCatalogPlugin: (id: string) => invoke<void>("install_catalog_plugin", { id }),
   // settings
   getSettings: () => invoke<Settings>("get_settings"),
   saveSettings: (s: Settings) => invoke<void>("save_settings", { s }),
@@ -58,7 +86,18 @@ export const api = {
   runAutomation: (id: string, note?: string) => invoke<unknown>("run_automation", { id, note }),
   listAutomationRuns: (id?: string) => invoke<unknown[]>("list_automation_runs", { id }),
   // plugins
-  listPlugins: () => invoke<unknown[]>("list_plugins"),
+  listPlugins: () =>
+    invoke<
+      Array<{
+        id: string;
+        name: string;
+        version: string;
+        author: string;
+        description: string;
+        enabled: boolean;
+        permissions: string[];
+      }>
+    >("list_plugins"),
   enablePlugin: (id: string, enabled: boolean) => invoke<void>("enable_plugin", { id, enabled }),
   uninstallPlugin: (id: string) => invoke<void>("uninstall_plugin", { id }),
   // sync
@@ -70,5 +109,9 @@ export const api = {
   exportHtml: (rel: string) => invoke<string>("export_html", { rel }),
   backupVault: (dest: string) => invoke<void>("backup_vault", { dest }),
   restoreBackup: (src: string, dest: string) => invoke<void>("restore_backup", { src, dest }),
-  // fs watch events handled via listen
+  // fs watch events
+  onVaultFsChange: (callback: (paths: string[]) => void) =>
+    listen<string[]>("vault-fs-change", (event) => callback(event.payload)),
+  onVaultFileWritten: (callback: (path: string) => void) =>
+    listen<string>("vault-file-written", (event) => callback(event.payload)),
 };

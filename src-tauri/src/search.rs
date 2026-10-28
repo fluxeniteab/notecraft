@@ -101,7 +101,7 @@ fn rebuild_locked(state: &State<AppState>) -> AppResult<()> {
     let index = tantivy::Index::create_in_dir(&idir, schema)
         .map_err(|e| AppError::Tantivy(e.to_string()))?;
     let mut writer = index
-        .writer(50_000_000)
+        .writer::<tantivy::TantivyDocument>(50_000_000)
         .map_err(|e| AppError::Tantivy(e.to_string()))?;
 
     let files = vault::walk_markdown(&root, &excluded);
@@ -136,7 +136,7 @@ pub fn index_note(_state: &State<AppState>, rel: &str, content: &str) -> AppResu
     let (schema, path_f, title_f, body_f, tags_f) = schema();
     let index = tantivy::Index::open_in_dir(&idir).map_err(|e| AppError::Tantivy(e.to_string()))?;
     let mut writer = index
-        .writer(15_000_000)
+        .writer::<tantivy::TantivyDocument>(15_000_000)
         .map_err(|e| AppError::Tantivy(e.to_string()))?;
     writer.delete_term(tantivy::schema::Term::from_field_text(path_f, rel));
     writer
@@ -162,7 +162,7 @@ pub fn remove_note(_state: &State<AppState>, rel: &str) -> AppResult<()> {
     let (_, path_f, _, _, _) = schema();
     let index = tantivy::Index::open_in_dir(&idir).map_err(|e| AppError::Tantivy(e.to_string()))?;
     let mut writer = index
-        .writer(15_000_000)
+        .writer::<tantivy::TantivyDocument>(15_000_000)
         .map_err(|e| AppError::Tantivy(e.to_string()))?;
     writer.delete_term(tantivy::schema::Term::from_field_text(path_f, rel));
     writer

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { UnlistenFn } from "@tauri-apps/api/event";
 import {
   Panel as ResizablePanel,
   PanelGroup as ResizablePanelGroup,
@@ -21,6 +22,7 @@ import RightSidebar from "./components/RightSidebar";
 import StatusBar from "./components/StatusBar";
 import CommandPalette from "./components/CommandPalette";
 import QuickSwitcher from "./components/QuickSwitcher";
+import QuickCapture from "./components/QuickCapture";
 import SettingsDialog from "./components/SettingsDialog";
 import GraphView from "./components/GraphView";
 import CanvasView from "./components/CanvasView";
@@ -33,9 +35,16 @@ export default function App() {
   const focusMode = useAppStore((s) => s.focusMode);
   const commandPaletteOpen = useAppStore((s) => s.commandPaletteOpen);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [captureOpen, setCaptureOpen] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
   const [canvasOpen, setCanvasOpen] = useState(false);
   const layoutTimer = useRef<number | null>(null);
+  const fsRefreshTimer = useRef<number | null>(null);
+  const reloadExternalRef = useRef(new Map<string, () => void>());
+  const registerExternalReload = useCallback((path: string, reload: (() => void) | null) => {
+    if (reload) reloadExternalRef.current.set(path, reload);
+    else reloadExternalRef.current.delete(path);
+  }, []);
 
   // Apply theme and editor metrics whenever they change.
   useEffect(() => {
@@ -77,6 +86,46 @@ export default function App() {
       .catch(() => {});
     return () => {
       alive = false;
+    };
+  }, []);
+
+  // Keep the file explorer and open-note conflict state in sync with external edits.
+  useEffect(() => {
+    if (!isTauri()) return;
+    let disposed = false;
+    let unlistenChange: UnlistenFn | undefined;
+    let unlistenWrite: UnlistenFn | undefined;
+    void Promise.all([
+      api.onVaultFsChange((paths) => {
+        if (fsRefreshTimer.current !== null) window.clearTimeout(fsRefreshTimer.current);
+        fsRefreshTimer.current = window.setTimeout(() => {
+          fsRefreshTimer.current = null;
+          void refreshVault();
+          paths.forEach((path) => reloadExternalRef.current.get(path)?.());
+        }, 180);
+      }),
+      api.onVaultFileWritten((path) => {
+        if (fsRefreshTimer.current !== null) window.clearTimeout(fsRefreshTimer.current);
+        fsRefreshTimer.current = window.setTimeout(() => {
+          fsRefreshTimer.current = null;
+          void refreshVault();
+          reloadExternalRef.current.get(path)?.();
+        }, 180);
+      }),
+    ]).then(([change, write]) => {
+      if (disposed) {
+        change();
+        write();
+      } else {
+        unlistenChange = change;
+        unlistenWrite = write;
+      }
+    }).catch((error) => console.error("Could not watch vault changes", error));
+    return () => {
+      disposed = true;
+      if (fsRefreshTimer.current !== null) window.clearTimeout(fsRefreshTimer.current);
+      unlistenChange?.();
+      unlistenWrite?.();
     };
   }, []);
 
@@ -166,6 +215,20 @@ export default function App() {
         if (activeId) void flushTab(activeId);
         return;
       }
+      if (key === "n" && event.shiftKey) {
+        event.preventDefault();
+        if (store.vaultRoot) setCaptureOpen(true);
+        return;
+      }
+      if (key === "n" && event.altKey) {
+        event.preventDefault();
+        if (store.vaultRoot) {
+          void api.createDailyNote().then((path) => useAppStore.getState().openTab(path)).catch((error) => {
+            toast.error("Could not open daily note", { description: String(error) });
+          });
+        }
+        return;
+      }
       if (key === "n") {
         event.preventDefault();
         if (store.vaultRoot) void createNote();
@@ -222,7 +285,7 @@ export default function App() {
   const main = (
     <div className="nc-main">
       {!focusMode && <TabBar />}
-      <EditorArea />
+      <EditorArea onExternalReload={registerExternalReload} />
     </div>
   );
 
@@ -287,8 +350,10 @@ export default function App() {
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenGraph={() => setGraphOpen(true)}
           onOpenCanvas={() => setCanvasOpen(true)}
+          onOpenCapture={() => setCaptureOpen(true)}
         />
         <QuickSwitcher />
+        <QuickCapture open={captureOpen} onClose={() => setCaptureOpen(false)} />
         <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         <GraphView open={graphOpen} onClose={() => setGraphOpen(false)} />
         <CanvasView open={canvasOpen} onClose={() => setCanvasOpen(false)} />

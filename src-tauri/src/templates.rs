@@ -20,19 +20,30 @@ pub fn list(state: &State<AppState>) -> AppResult<Vec<TemplateInfo>> {
     for folder in ["templates", ".notecraft/templates"] {
         let dir = root.join(folder);
         if dir.is_dir() {
-            if let Ok(entries) = std::fs::read_dir(&dir) {
-                for e in entries.flatten() {
-                    let name = e.file_name().to_string_lossy().to_string();
-                    if name.ends_with(".md") {
-                        out.push(TemplateInfo {
-                            path: format!("{}/{}", folder, name),
-                            name: name.trim_end_matches(".md").to_string(),
-                        });
-                    }
+            for entry in walkdir::WalkDir::new(&dir)
+                .into_iter()
+                .filter_map(Result::ok)
+            {
+                if !entry.file_type().is_file()
+                    || !entry.path().extension().is_some_and(|ext| ext == "md")
+                {
+                    continue;
                 }
+                let Ok(relative) = entry.path().strip_prefix(&root) else {
+                    continue;
+                };
+                let path = relative.to_string_lossy().replace('\\', "/");
+                let name = entry
+                    .path()
+                    .file_stem()
+                    .map(|stem| stem.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                out.push(TemplateInfo { path, name });
             }
         }
     }
+    out.sort_by(|a, b| a.path.to_lowercase().cmp(&b.path.to_lowercase()));
+    out.dedup_by(|a, b| a.path == b.path);
     Ok(out)
 }
 

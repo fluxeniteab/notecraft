@@ -19,7 +19,6 @@ mod vault;
 mod workspace;
 
 use state::AppState;
-use tauri::Manager;
 
 pub fn run() {
     env_logger::init();
@@ -38,6 +37,7 @@ pub fn run() {
             commands::list_all_files,
             commands::read_file,
             commands::write_file,
+            commands::write_file_if_unchanged,
             commands::create_file,
             commands::create_dir,
             commands::delete_path,
@@ -46,6 +46,10 @@ pub fn run() {
             commands::parse_note,
             commands::render_html,
             commands::search,
+            commands::save_search,
+            commands::list_saved_searches,
+            commands::delete_saved_search,
+            commands::search_history,
             commands::rebuild_index,
             commands::index_status,
             commands::rebuild_links,
@@ -62,6 +66,20 @@ pub fn run() {
             commands::set_task_done,
             commands::list_templates,
             commands::render_template,
+            commands::create_daily_note,
+            commands::append_capture,
+            commands::sync_push,
+            commands::sync_pull,
+            commands::sync_status_folder,
+            commands::rename_tag,
+            commands::unlinked_mentions,
+            commands::propagate_link_rename,
+            commands::list_collections,
+            commands::save_collection,
+            commands::delete_collection,
+            commands::collection_notes,
+            commands::plugin_catalog,
+            commands::install_catalog_plugin,
             commands::get_settings,
             commands::save_settings,
             commands::list_workspaces,

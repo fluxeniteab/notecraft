@@ -19,6 +19,14 @@ pub struct Settings {
     pub high_contrast: bool,
     pub telemetry_opt_in: bool,
     pub semantic_search_enabled: bool,
+    pub daily_note_folder: String,
+    pub daily_note_template: Option<String>,
+    pub capture_note: String,
+    pub explorer_sort: String, // "name" | "modified" | "size"
+    pub explorer_group_dirs: bool,
+    pub shortcuts: std::collections::HashMap<String, String>,
+    pub writing_goal_words: u32,
+    pub sync_folder: Option<PathBuf>,
     pub data_dir: Option<PathBuf>,
 }
 
@@ -40,8 +48,48 @@ impl Default for Settings {
             high_contrast: false,
             telemetry_opt_in: false,
             semantic_search_enabled: false,
+            daily_note_folder: "daily".into(),
+            daily_note_template: None,
+            capture_note: "inbox.md".into(),
+            explorer_sort: "name".into(),
+            explorer_group_dirs: true,
+            shortcuts: std::collections::HashMap::new(),
+            writing_goal_words: 0,
+            sync_folder: None,
             data_dir: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn settings_roundtrip_with_new_fields() {
+        let mut s = Settings::default();
+        s.capture_note = "capture/inbox.md".into();
+        s.explorer_sort = "modified".into();
+        s.shortcuts.insert("palette".into(), "Ctrl+K".into());
+        let json = serde_json::to_string(&s).unwrap();
+        let back: Settings = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.capture_note, "capture/inbox.md");
+        assert_eq!(back.explorer_sort, "modified");
+        assert_eq!(
+            back.shortcuts.get("palette").map(String::as_str),
+            Some("Ctrl+K")
+        );
+        assert_eq!(back.writing_goal_words, 0);
+    }
+
+    #[test]
+    fn legacy_settings_file_uses_defaults_for_new_fields() {
+        // A settings.json written before these fields existed must still load.
+        let legacy = r##"{"theme":"dark","accent":"#8b5cf6"}"##;
+        let s: Settings = serde_json::from_str(legacy).unwrap();
+        assert_eq!(s.capture_note, "inbox.md");
+        assert!(s.explorer_group_dirs);
+        assert!(s.sync_folder.is_none());
     }
 }
 

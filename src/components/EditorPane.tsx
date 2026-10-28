@@ -8,6 +8,8 @@ import {
 import { basicSetup } from "codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { toast } from "sonner";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 import { AlertTriangle, RotateCw } from "lucide-react";
 import { useAppStore, type Tab } from "../store/appStore";
 import { api } from "../lib/tauri";
@@ -31,18 +33,84 @@ function countWords(text: string): number {
   return trimmed ? trimmed.split(/\s+/).length : 0;
 }
 
+/** Render $…$ / $$…$$ in the preview without touching code blocks. */
+function typesetMath(root: HTMLElement): void {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => {
+      const parent = node.parentElement;
+      if (!parent) return NodeFilter.FILTER_REJECT;
+      const tag = parent.tagName;
+      if (tag === "PRE" || tag === "CODE" || tag === "SCRIPT" || tag === "STYLE" || tag === "TEXTAREA") {
+        return NodeFilter.FILTER_REJECT;
+      }
+      if (parent.closest(".katex, .nc-math")) return NodeFilter.FILTER_REJECT;
+      return /\$/.test(node.nodeValue ?? "")
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_REJECT;
+    },
+  });
+  const textNodes: Text[] = [];
+  let current: Node | null;
+  while ((current = walker.nextNode())) textNodes.push(current as Text);
+
+  for (const textNode of textNodes) {
+    const value = textNode.nodeValue ?? "";
+    const parts: Array<string | { tex: string; display: boolean }> = [];
+    const re = /\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g;
+    let last = 0;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(value))) {
+      if (match.index > last) parts.push(value.slice(last, match.index));
+      parts.push({ tex: (match[1] ?? match[2]).trim(), display: match[1] !== undefined });
+      last = match.index + match[0].length;
+    }
+    if (parts.length === 0) continue;
+    if (last < value.length) parts.push(value.slice(last));
+
+    const fragment = document.createDocumentFragment();
+    let rendered = false;
+    for (const part of parts) {
+      if (typeof part === "string") {
+        fragment.append(document.createTextNode(part));
+        continue;
+      }
+      const span = document.createElement("span");
+      span.className = "nc-math";
+      try {
+        katex.render(part.tex, span, { throwOnError: false, displayMode: part.display });
+        rendered = true;
+      } catch {
+        span.textContent = `$${part.tex}$`;
+      }
+      fragment.append(span);
+    }
+    if (rendered) textNode.replaceWith(fragment);
+  }
+}
+
 /**
  * One persistent CodeMirror instance per open tab. The pane is hidden rather
  * than unmounted when inactive, so cursor, selection, scroll position and undo
  * history survive tab switches, mode changes and theme changes.
  */
-export default function EditorPane({ tab, active }: { tab: Tab; active: boolean }) {
+export default function EditorPane({
+  tab,
+  active,
+  onExternalReload,
+}: {
+  tab: Tab;
+  active: boolean;
+  onExternalReload?: (path: string, reload: (() => void) | null) => void;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const queueRef = useRef<Promise<void>>(Promise.resolve());
   const lastSavedRef = useRef<string>("");
   const lastSnapshotRef = useRef<string>("");
+  const lastWrittenByAppRef = useRef<string | null>(null);
+  const externalChangeRef = useRef(false);
+  const diskContentRef = useRef<string>("");
   const currentPathRef = useRef(tab.path);
   const saveTimerRef = useRef<number | null>(null);
   const previewTimerRef = useRef<number | null>(null);
@@ -52,6 +120,10 @@ export default function EditorPane({ tab, active }: { tab: Tab; active: boolean 
   const [error, setError] = useState<string | null>(null);
   const [html, setHtml] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [externalContent, setExternalContent] = useState<string | null>(null);
+  const [showCompare, setShowCompare] = useState(false);
+  const [keepEditorRequested, setKeepEditorRequested] = useState(false);
+  const theme = useAppStore((s) => s.theme);
 
   modeRef.current = tab.mode;
   currentPathRef.current = tab.path;
@@ -82,10 +154,27 @@ export default function EditorPane({ tab, active }: { tab: Tab; active: boolean 
       }
       queueRef.current = queueRef.current.then(async () => {
         if (text === lastSavedRef.current) return;
+        if (externalChangeRef.current && !keepEditorRequested) return;
         setStatus("saving");
         try {
-          await api.writeFile(currentPathRef.current, text);
+          const expectedDiskText = diskContentRef.current;
+          if (externalChangeRef.current) {
+            await api.writeFileIfUnchanged(currentPathRef.current, text, expectedDiskText);
+          } else {
+            await api.writeFile(currentPathRef.current, text);
+          }
           lastSavedRef.current = text;
+          diskContentRef.current = text;
+          setExternalContent(null);
+          setShowCompare(false);
+          setKeepEditorRequested(false);
+          externalChangeRef.current = false;
+          lastWrittenByAppRef.current = currentPathRef.current;
+          window.setTimeout(() => {
+            if (lastWrittenByAppRef.current === currentPathRef.current) {
+              lastWrittenByAppRef.current = null;
+            }
+          }, 1000);
           const current = viewRef.current?.state.doc.toString() ?? text;
           if (current === text) {
             setDirty(false);
@@ -97,12 +186,26 @@ export default function EditorPane({ tab, active }: { tab: Tab; active: boolean 
         } catch (err) {
           setDirty(true);
           setStatus("error");
-          toast.error("Could not save note", { description: String(err) });
+          const message = String(err);
+          if (/file changed on disk/i.test(message)) {
+            externalChangeRef.current = true;
+            const diskText = await api.readFile(currentPathRef.current).catch(() => null);
+            if (diskText !== null) {
+              diskContentRef.current = diskText;
+              setExternalContent(diskText);
+            }
+            toast.warning("Save blocked to protect an external edit", {
+              description: "Choose whether to reload the disk version or keep your editor version.",
+              duration: 8000,
+            });
+          } else {
+            toast.error("Could not save note", { description: message });
+          }
         }
       });
       return queueRef.current;
     },
-    [setDirty, setStatus, tab.id]
+    [keepEditorRequested, setDirty, setStatus, tab.id]
   );
 
   const flush = useCallback(async () => {
@@ -133,6 +236,62 @@ export default function EditorPane({ tab, active }: { tab: Tab; active: boolean 
     }, 180);
   }, []);
 
+  const reloadFromDisk = useCallback(async () => {
+    if (useAppStore.getState().tabs.find((item) => item.id === tab.id)?.dirty) return;
+    try {
+      const diskText = await api.readFile(currentPathRef.current);
+      if (viewRef.current?.state.doc.toString() === diskText) {
+        setExternalContent(null);
+        return;
+      }
+      diskContentRef.current = diskText;
+      externalChangeRef.current = true;
+      lastSavedRef.current = diskText;
+      setDirty(false);
+      setStatus("saved");
+      setExternalContent(null);
+      setShowCompare(false);
+      useAppStore.getState().setTabStats(tab.id, {
+        words: countWords(diskText),
+        chars: diskText.length,
+      });
+      if (modeRef.current === "reading" || modeRef.current === "split") {
+        void api.renderHtml(diskText).then(setHtml).catch(() => {});
+      }
+      if (viewRef.current) {
+        viewRef.current.dispatch({
+          changes: { from: 0, to: viewRef.current.state.doc.length, insert: diskText },
+        });
+      } else {
+        setReloadKey((key) => key + 1);
+      }
+      toast.info("Note updated from disk", { description: tab.title });
+    } catch (error) {
+      toast.error("Could not reload the changed note", { description: String(error) });
+    }
+  }, [setDirty, setStatus, tab.id, tab.title]);
+
+  useEffect(() => {
+    onExternalReload?.(tab.path, async () => {
+      const path = currentPathRef.current;
+      if (lastWrittenByAppRef.current === path) {
+        lastWrittenByAppRef.current = null;
+        return;
+      }
+      const dirty = useAppStore.getState().tabs.find((item) => item.id === tab.id)?.dirty;
+      if (dirty) {
+        externalChangeRef.current = true;
+        void api.readFile(path).then((text) => {
+          diskContentRef.current = text;
+          setExternalContent(text);
+        }).catch(() => setExternalContent(null));
+        return;
+      }
+      await reloadFromDisk();
+    });
+    return () => onExternalReload?.(tab.path, null);
+  }, [onExternalReload, reloadFromDisk, tab.id, tab.path]);
+
   // Load the file and build the editor exactly once per tab.
   useEffect(() => {
     let cancelled = false;
@@ -145,6 +304,7 @@ export default function EditorPane({ tab, active }: { tab: Tab; active: boolean 
       .then((text) => {
         if (cancelled) return;
         lastSavedRef.current = text;
+        diskContentRef.current = text;
         lastSnapshotRef.current = text;
         useAppStore.getState().setTabStats(tab.id, {
           words: countWords(text),
@@ -167,6 +327,10 @@ export default function EditorPane({ tab, active }: { tab: Tab; active: boolean 
               placeholderExt("Start writing…"),
               EditorView.contentAttributes.of({ "aria-label": `Editing ${baseName(tab.path)}` }),
               EditorView.updateListener.of((update: ViewUpdate) => {
+                if (update.docChanged && externalChangeRef.current) {
+                  externalChangeRef.current = false;
+                  return;
+                }
                 if (update.selectionSet) {
                   const head = update.state.selection.main.head;
                   const line = update.state.doc.lineAt(head);
@@ -182,6 +346,7 @@ export default function EditorPane({ tab, active }: { tab: Tab; active: boolean 
                     setDirty(true);
                     setStatus("dirty");
                   }
+                  if (externalChangeRef.current) externalChangeRef.current = false;
                   const delay = Math.max(
                     200,
                     useAppStore.getState().settings?.autosave_ms ?? 800
@@ -334,14 +499,74 @@ export default function EditorPane({ tab, active }: { tab: Tab; active: boolean 
     return unsubscribe;
   }, [tab.id]);
 
-  // Give rendered headings stable ids so `#heading` links can scroll to them.
+  // Give rendered headings stable ids so `#heading` links can scroll to them,
+  // typeset math and render mermaid diagrams.
   useEffect(() => {
     const root = previewRef.current;
     if (!root || !html) return;
+    let cancelled = false;
+
     root.querySelectorAll("h1, h2, h3, h4, h5, h6").forEach((heading) => {
       if (!heading.id) heading.id = slugify(heading.textContent ?? "");
     });
-  }, [html]);
+    typesetMath(root);
+
+    root.querySelectorAll<HTMLPreElement>("pre > code.language-mermaid").forEach((code) => {
+      const source = code.textContent ?? "";
+      const pre = code.parentElement;
+      if (!pre) return;
+      const host = document.createElement("div");
+      host.className = "nc-mermaid";
+      pre.replaceWith(host);
+      void (async () => {
+        try {
+          const { default: mermaid } = await import("mermaid");
+          mermaid.initialize({
+            startOnLoad: false,
+            theme: theme === "dark" ? "dark" : "neutral",
+            securityLevel: "strict",
+          });
+          const id = `nc-mmd-${Math.random().toString(36).slice(2, 9)}`;
+          const { svg } = await mermaid.render(id, source);
+          if (cancelled || !host.isConnected) return;
+          host.innerHTML = svg;
+        } catch (error) {
+          console.warn("mermaid render failed", error);
+          if (host.isConnected) host.replaceWith(pre);
+        }
+      })();
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [html, theme]);
+
+  // Insert recovered content requested by the history panel at the cursor.
+  useEffect(() => {
+    let lastNonce = 0;
+    const process = () => {
+      const current = useAppStore.getState().insertRequest;
+      if (!current || current.nonce === lastNonce) return;
+      lastNonce = current.nonce;
+      if (current.path !== currentPathRef.current) return;
+      useAppStore.setState({ insertRequest: null });
+      const view = viewRef.current;
+      if (!view) return;
+      if (modeRef.current === "reading") useAppStore.getState().setTabMode(tab.id, "live");
+      const { from, to } = view.state.selection.main;
+      view.dispatch({
+        changes: { from, to, insert: current.text },
+        selection: { anchor: from + current.text.length },
+        scrollIntoView: true,
+      });
+      view.focus();
+      toast.success("Selection recovered into the note");
+    };
+    process();
+    const unsubscribe = useAppStore.subscribe(process);
+    return unsubscribe;
+  }, [tab.id]);
 
   const scrollToHeading = useCallback((hash: string) => {
     const root = previewRef.current;
@@ -458,6 +683,39 @@ export default function EditorPane({ tab, active }: { tab: Tab; active: boolean 
           </div>
         )}
       </div>
+
+      {externalContent !== null && (
+        <div className="nc-conflict-backdrop" role="dialog" aria-modal="true" aria-labelledby={`conflict-title-${tab.id}`}>
+          <section className="nc-conflict-card">
+            <div className="nc-conflict-eyebrow">External edit detected</div>
+            <h2 id={`conflict-title-${tab.id}`} className="nc-conflict-title">{tab.title} changed outside NoteCraft</h2>
+            <p className="nc-conflict-copy">Your unsaved editor version is safe. Compare both versions, reload the disk copy, or explicitly keep yours.</p>
+            {showCompare && (
+              <div className="nc-conflict-compare">
+                <div><strong>Your editor</strong><pre>{viewRef.current?.state.doc.toString() ?? ""}</pre></div>
+                <div><strong>On disk</strong><pre>{externalContent}</pre></div>
+              </div>
+            )}
+            <div className="nc-conflict-actions">
+              <button type="button" className="nc-btn nc-btn-ghost" onClick={() => setShowCompare((value) => !value)}>{showCompare ? "Hide comparison" : "Compare versions"}</button>
+              <div className="flex-1" />
+              <button type="button" className="nc-btn nc-btn-outline" onClick={() => {
+                const diskVersion = externalContent;
+                diskContentRef.current = diskVersion;
+                lastSavedRef.current = diskVersion;
+                externalChangeRef.current = false;
+                setDirty(false);
+                setStatus("saved");
+                setExternalContent(null);
+                setShowCompare(false);
+                viewRef.current?.dispatch({ changes: { from: 0, to: viewRef.current.state.doc.length, insert: diskVersion } });
+                if (modeRef.current === "reading" || modeRef.current === "split") void api.renderHtml(diskVersion).then(setHtml).catch(() => {});
+              }}>Reload disk version</button>
+              <button type="button" className="nc-btn nc-btn-primary" onClick={() => { diskContentRef.current = externalContent; externalChangeRef.current = true; setKeepEditorRequested(true); void flush(); }}>Keep editor version</button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {!editorVisible && !previewVisible && null}
 

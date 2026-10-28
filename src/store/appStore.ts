@@ -55,6 +55,7 @@ interface AppState {
   cursors: Record<string, { line: number; col: number }>;
   recentNotes: string[];
   gotoRequest: GotoRequest | null;
+  insertRequest: { path: string; text: string; nonce: number } | null;
   // actions
   setVaultRoot: (p: string | null) => void;
   setRecentVaults: (v: string[]) => void;
@@ -83,6 +84,7 @@ interface AppState {
   setSaveStatus: (id: string, status: SaveStatus) => void;
   setCursor: (id: string, cursor: { line: number; col: number }) => void;
   gotoLine: (path: string, line: number) => void;
+  requestInsert: (path: string, text: string) => void;
 }
 
 function tabTitle(path: string): string {
@@ -117,6 +119,7 @@ export const useAppStore = create<AppState>()(
       cursors: {},
       recentNotes: [],
       gotoRequest: null,
+      insertRequest: null,
       setVaultRoot: (p) => set({ vaultRoot: p }),
       setRecentVaults: (v) => set({ recentVaults: v }),
       setFiles: (f) => set({ files: f }),
@@ -238,6 +241,10 @@ export const useAppStore = create<AppState>()(
       gotoLine: (path, line) =>
         set({
           gotoRequest: { path: normalizeRel(path), line, nonce: Date.now() },
+        }),
+      requestInsert: (path, text) =>
+        set({
+          insertRequest: { path: normalizeRel(path), text, nonce: Date.now() },
         }),
     }),
     {

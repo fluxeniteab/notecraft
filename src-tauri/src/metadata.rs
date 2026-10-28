@@ -18,6 +18,7 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
         CREATE TABLE IF NOT EXISTS plugins (id TEXT PRIMARY KEY, manifest TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 0, installed_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS sync_state (path TEXT PRIMARY KEY, hash TEXT NOT NULL, mtime INTEGER NOT NULL, remote_hash TEXT, status TEXT NOT NULL DEFAULT 'synced');
         CREATE TABLE IF NOT EXISTS search_history (id INTEGER PRIMARY KEY AUTOINCREMENT, query TEXT NOT NULL, created_at TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS saved_searches (id TEXT PRIMARY KEY, name TEXT NOT NULL, query TEXT NOT NULL, filters TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS idx_note_tags_tag ON note_tags(tag);
         CREATE INDEX IF NOT EXISTS idx_links_target ON links(target);
         CREATE INDEX IF NOT EXISTS idx_tasks_note ON tasks(note_path);

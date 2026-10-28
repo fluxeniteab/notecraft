@@ -28,6 +28,7 @@ import { baseName, dirName, formatRelativeTime, stem } from "../lib/files";
 import { flushTab } from "../lib/saveRegistry";
 import { pickVault } from "../lib/vaultActions";
 import { createNote as createNoteAction } from "../lib/noteActions";
+import { exportNotePdf } from "../lib/export";
 import EditorPane from "./EditorPane";
 import { ContextMenu, IconButton, Kbd, Segmented, type MenuEntry } from "./ui";
 
@@ -55,7 +56,11 @@ function SaveChip({ state }: { state: "idle" | "dirty" | "saving" | "saved" | "e
   );
 }
 
-export default function EditorArea() {
+export default function EditorArea({
+  onExternalReload,
+}: {
+  onExternalReload?: (path: string, reload: (() => void) | null) => void;
+}) {
   const tabs = useAppStore((s) => s.tabs);
   const activeTabId = useAppStore((s) => s.activeTabId);
   const vaultRoot = useAppStore((s) => s.vaultRoot);
@@ -134,6 +139,15 @@ export default function EditorArea() {
               .exportHtml(active.path)
               .then((html) => copy(html, "HTML copied to clipboard"))
               .catch((error) => toast.error("Could not render the note", { description: String(error) })),
+        },
+        {
+          label: "Export PDF…",
+          icon: <FileText size={13} />,
+          onSelect: () => {
+            void exportNotePdf(active.path)
+              .then(() => toast.success("Print dialog opened", { description: "Choose \"Save as PDF\" to keep a copy." }))
+              .catch((error) => toast.error("Could not open the print view", { description: String(error) }));
+          },
         },
         {
           label: focusMode ? "Leave focus mode" : "Enter focus mode",
@@ -239,7 +253,12 @@ export default function EditorArea() {
         ) : active ? (
           <>
             {tabs.map((tab) => (
-              <EditorPane key={tab.id} tab={tab} active={tab.id === activeTabId} />
+              <EditorPane
+                key={tab.id}
+                tab={tab}
+                active={tab.id === activeTabId}
+                onExternalReload={onExternalReload}
+              />
             ))}
           </>
         ) : (

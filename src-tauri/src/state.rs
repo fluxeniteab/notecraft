@@ -10,6 +10,7 @@ pub struct AppInner {
     pub db: Option<Connection>,
     pub vault_root: Option<PathBuf>,
     pub recent_vaults: Vec<PathBuf>,
+    pub vault_watcher: Option<notify::RecommendedWatcher>,
 }
 
 #[derive(Clone)]
@@ -25,6 +26,7 @@ impl AppState {
             db: None,
             vault_root: None,
             recent_vaults: vec![],
+            vault_watcher: None,
         };
         // open db
         let db_path = crate::settings::data_dir().join("notecraft.db");
