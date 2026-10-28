@@ -1,3 +1,5 @@
+export type Theme = "dark" | "light";
+
 export interface FileEntry {
   path: string;
   name: string;
@@ -42,7 +44,7 @@ export interface ParsedNote {
 }
 
 export interface Settings {
-  theme: string;
+  theme: Theme;
   accent: string;
   editor_font_size: number;
   editor_line_height: number;

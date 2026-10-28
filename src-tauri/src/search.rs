@@ -3,9 +3,56 @@ use crate::error::AppResult;
 use crate::state::AppState;
 use crate::vault;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, MutexGuard};
 use tantivy::doc;
 use tauri::State;
+
+/// Serializes writers/readers. Tantivy only allows one writer at a time, and
+/// re-creating an index while a reader is open fails on Windows.
+static INDEX_LOCK: Mutex<()> = Mutex::new(());
+/// Set when notes are deleted or moved between folders; the next search
+/// rebuilds instead of serving stale documents.
+static STALE: AtomicBool = AtomicBool::new(false);
+
+fn index_lock() -> MutexGuard<'static, ()> {
+    INDEX_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+pub fn mark_stale() {
+    STALE.store(true, Ordering::SeqCst);
+}
+
+fn is_markdown(rel: &str) -> bool {
+    rel.ends_with(".md") || rel.ends_with(".markdown")
+}
+
+fn matches_folder(path: &str, folder: &str) -> bool {
+    path == folder || path.starts_with(&format!("{}/", folder.trim_end_matches('/')))
+}
+
+fn note_document(
+    rel: &str,
+    content: &str,
+    path_f: tantivy::schema::Field,
+    title_f: tantivy::schema::Field,
+    body_f: tantivy::schema::Field,
+    tags_f: tantivy::schema::Field,
+) -> tantivy::TantivyDocument {
+    let parsed = crate::markdown::parse(content);
+    let title = Path::new(rel)
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let tags = parsed.tags.join(" ");
+    doc!(
+        path_f => rel.to_string(),
+        title_f => title,
+        body_f => parsed.body,
+        tags_f => tags,
+    )
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchHit {
@@ -36,6 +83,11 @@ fn schema() -> (
 }
 
 pub fn rebuild(state: &State<AppState>) -> AppResult<()> {
+    let _guard = index_lock();
+    rebuild_locked(state)
+}
+
+fn rebuild_locked(state: &State<AppState>) -> AppResult<()> {
     let (root, excluded) = {
         let g = state.inner.lock();
         let root = g.vault_root.clone().ok_or(AppError::NoVault)?;
@@ -56,21 +108,67 @@ pub fn rebuild(state: &State<AppState>) -> AppResult<()> {
     for f in files {
         let rel = vault::to_rel(&root, &f);
         let content = std::fs::read_to_string(&f).unwrap_or_default();
-        let parsed = crate::markdown::parse(&content);
-        let title = f
-            .file_stem()
-            .map(|s| s.to_string_lossy().to_string())
-            .unwrap_or_default();
-        let tags = parsed.tags.join(" ");
         writer
-            .add_document(tantivy::doc!(
-                path_f => rel.clone(),
-                title_f => title,
-                body_f => parsed.body.clone(),
-                tags_f => tags,
+            .add_document(note_document(
+                &rel, &content, path_f, title_f, body_f, tags_f,
             ))
             .map_err(|e| AppError::Tantivy(e.to_string()))?;
     }
+    writer
+        .commit()
+        .map_err(|e| AppError::Tantivy(e.to_string()))?;
+    STALE.store(false, Ordering::SeqCst);
+    Ok(())
+}
+
+/// Update a single note in the index after it is saved or created. Falls back
+/// to a rebuild on the next search when the index does not exist yet.
+pub fn index_note(_state: &State<AppState>, rel: &str, content: &str) -> AppResult<()> {
+    if !is_markdown(rel) {
+        return Ok(());
+    }
+    let _guard = index_lock();
+    let idir = index_dir();
+    if !idir.exists() {
+        mark_stale();
+        return Ok(());
+    }
+    let (schema, path_f, title_f, body_f, tags_f) = schema();
+    let index = tantivy::Index::open_in_dir(&idir)
+        .map_err(|e| AppError::Tantivy(e.to_string()))?;
+    let mut writer = index
+        .writer(15_000_000)
+        .map_err(|e| AppError::Tantivy(e.to_string()))?;
+    writer.delete_term(tantivy::schema::Term::from_field_text(path_f, rel));
+    writer
+        .add_document(note_document(
+            rel, content, path_f, title_f, body_f, tags_f,
+        ))
+        .map_err(|e| AppError::Tantivy(e.to_string()))?;
+    writer
+        .commit()
+        .map_err(|e| AppError::Tantivy(e.to_string()))?;
+    Ok(())
+}
+
+/// Remove a single document. Deleting folders calls `mark_stale` as well, so
+/// nested documents are cleaned up by the next rebuild.
+pub fn remove_note(_state: &State<AppState>, rel: &str) -> AppResult<()> {
+    if !is_markdown(rel) {
+        return Ok(());
+    }
+    let _guard = index_lock();
+    let idir = index_dir();
+    if !idir.exists() {
+        return Ok(());
+    }
+    let (_, path_f, _, _, _) = schema();
+    let index = tantivy::Index::open_in_dir(&idir)
+        .map_err(|e| AppError::Tantivy(e.to_string()))?;
+    let mut writer = index
+        .writer(15_000_000)
+        .map_err(|e| AppError::Tantivy(e.to_string()))?;
+    writer.delete_term(tantivy::schema::Term::from_field_text(path_f, rel));
     writer
         .commit()
         .map_err(|e| AppError::Tantivy(e.to_string()))?;
@@ -83,18 +181,17 @@ pub fn search(
     filters: &serde_json::Value,
 ) -> AppResult<Vec<SearchHit>> {
     let idir = index_dir();
-    if !idir.exists() {
-        // auto rebuild
-        rebuild(state)?;
+    let _guard = index_lock();
+    if !idir.exists() || STALE.load(Ordering::SeqCst) {
+        rebuild_locked(state)?;
     }
-    let (schema, path_f, title_f, body_f, tags_f) = schema();
+    let (_, path_f, title_f, body_f, tags_f) = schema();
     let index = tantivy::Index::open_in_dir(&idir).map_err(|e| AppError::Tantivy(e.to_string()))?;
     let reader = index
         .reader()
         .map_err(|e| AppError::Tantivy(e.to_string()))?;
     let searcher = reader.searcher();
     let qp = tantivy::query::QueryParser::for_index(&index, vec![title_f, body_f, tags_f]);
-    // support filters: folder, tag, ext (ignored for now beyond query)
     let q = if query.trim().is_empty() {
         "*".to_string()
     } else {
@@ -113,7 +210,7 @@ pub fn search(
         .map_err(|e| AppError::Tantivy(e.to_string()))?;
 
     let mut hits = Vec::new();
-    for (_score, doc_addr) in top {
+    for (score, doc_addr) in top {
         let doc: tantivy::TantivyDocument = searcher
             .doc(doc_addr)
             .map_err(|e| AppError::Tantivy(e.to_string()))?;
@@ -127,11 +224,9 @@ pub fn search(
             _ => "",
         }
         .to_string();
-        let score = 1.0f32;
         let snippet = snippet_gen.snippet_from_doc(&doc).to_html();
-        // folder filter
         if let Some(folder) = filters.get("folder").and_then(|v| v.as_str()) {
-            if !folder.is_empty() && !path.starts_with(folder) {
+            if !folder.is_empty() && !matches_folder(&path, folder) {
                 continue;
             }
         }
@@ -141,7 +236,7 @@ pub fn search(
                     Some(tantivy::schema::OwnedValue::Str(t)) => t.as_str(),
                     _ => "",
                 };
-                if !tags_val.contains(tag) {
+                if !tags_val.split_whitespace().any(|t| t == tag) {
                     continue;
                 }
             }
@@ -153,16 +248,25 @@ pub fn search(
             title,
         });
     }
-    // apply folder filter from query? done
     Ok(hits)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::matches_folder;
+
+    #[test]
+    fn folder_filter_matches_only_the_selected_folder_boundary() {
+        assert!(matches_folder("notes/a.md", "notes"));
+        assert!(matches_folder("notes", "notes"));
+        assert!(matches_folder("notes/a.md", "notes/"));
+        assert!(!matches_folder("notes2/a.md", "notes"));
+        assert!(!matches_folder("other/a.md", "notes"));
+    }
 }
 
 pub fn status(state: &State<AppState>) -> (usize, usize, String) {
     let idir = index_dir();
-    if !idir.exists() {
-        return (0, 0, "not built".into());
-    }
-    // count md files
     let root = {
         let g = state.inner.lock();
         g.vault_root.clone()
@@ -172,5 +276,13 @@ pub fn status(state: &State<AppState>) -> (usize, usize, String) {
     } else {
         0
     };
-    (total, total, "ready".into())
+    if !idir.exists() {
+        return (total, 0, "not built".into());
+    }
+    let state_str = if STALE.load(Ordering::SeqCst) {
+        "stale"
+    } else {
+        "ready"
+    };
+    (total, total, state_str.into())
 }

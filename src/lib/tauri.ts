@@ -9,6 +9,7 @@ export const api = {
   getVaultRoot: () => invoke<string | null>("get_vault_root"),
   listRecentVaults: () => invoke<string[]>("list_recent_vaults"),
   listDir: (rel: string) => invoke<FileEntry[]>("list_dir", { rel }),
+  listAllFiles: () => invoke<FileEntry[]>("list_all_files"),
   readFile: (rel: string) => invoke<string>("read_file", { rel }),
   writeFile: (rel: string, content: string) => invoke<void>("write_file", { rel, content }),
   createFile: (rel: string, content: string) => invoke<void>("create_file", { rel, content }),

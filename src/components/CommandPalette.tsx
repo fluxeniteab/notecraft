@@ -1,68 +1,335 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
+import { Command } from "cmdk";
+import { toast } from "sonner";
+import {
+  Command as CommandIcon,
+  FileText,
+  FolderOpen,
+  FolderPlus,
+  Loader2,
+  LogOut,
+  Maximize2,
+  Moon,
+  Network,
+  PanelLeft,
+  PanelRight,
+  Plus,
+  RefreshCw,
+  Search,
+  Settings,
+  Sun,
+  Workflow,
+} from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { api } from "../lib/tauri";
-import { Command } from "cmdk";
-import { X } from "lucide-react";
+import { dirName, stem } from "../lib/files";import { createNote } from "../lib/noteActions";
+import { closeCurrentVault, pickVault } from "../lib/vaultActions";
+import { setThemeEverywhere } from "../lib/settingsActions";
+import { Kbd } from "./ui";
 
-interface Cmd { id: string; label: string; run: () => void; }
+interface PaletteCommand {
+  id: string;
+  label: string;
+  hint?: string;
+  icon: React.ReactNode;
+  shortcut?: string;
+  run: () => void | Promise<void>;
+}
 
-export default function CommandPalette({ open, onClose, onOpenSettings }: { open: boolean; onClose: () => void; onOpenSettings: () => void }) {
-  const store = useAppStore();
-  const [pages, setPages] = useState<string[]>([]);
+export default function CommandPalette({
+  open,
+  onClose,
+  onOpenSettings,
+  onOpenGraph,
+  onOpenCanvas,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onOpenSettings: () => void;
+  onOpenGraph: () => void;
+  onOpenCanvas: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [notes, setNotes] = useState<Array<{ path: string; title: string; snippet: string }>>([]);
+  const [searching, setSearching] = useState(false);
+  const requestRef = useRef(0);
+  const recentNotes = useAppStore((s) => s.recentNotes);
+  const allFiles = useAppStore((s) => s.allFiles);
+
+  useEffect(() => {
+    if (open) {
+      setQuery("");
+      setNotes([]);
+      setSearching(false);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
-    api.listDir("").then((e) => setPages(e.filter((x) => !x.is_dir).map((x) => x.path))).catch(() => {});
+    const text = query.trim();
+    if (text.length < 2) {
+      setNotes([]);
+      setSearching(false);
+      return;
+    }
+    const request = ++requestRef.current;
+    setSearching(true);
+    const handle = window.setTimeout(() => {
+      api
+        .search(text, {})
+        .then((hits) => {
+          if (requestRef.current !== request) return;
+          setNotes(
+            hits.slice(0, 8).map((hit) => ({
+              path: hit.path,
+              title: hit.title || stem(hit.path),
+              snippet: hit.snippet,
+            }))
+          );
+        })
+        .catch(() => {
+          if (requestRef.current === request) setNotes([]);
+        })
+        .finally(() => {
+          if (requestRef.current === request) setSearching(false);
+        });
+    }, 200);
+    return () => window.clearTimeout(handle);
+  }, [query, open]);
+
+  const commands = useMemo<PaletteCommand[]>(() => {
+    const store = useAppStore.getState();
+    return [
+      {
+        id: "new-note",
+        label: "New note",
+        hint: "Create a note at the vault root",
+        icon: <Plus size={14} />,
+        shortcut: "Ctrl N",
+        run: () => void createNote(),
+      },
+      {
+        id: "quick-switch",
+        label: "Go to note…",
+        hint: "Quick switcher",
+        icon: <Search size={14} />,
+        shortcut: "Ctrl P",
+        run: () => store.setQuickSwitcherOpen(true),
+      },
+      {
+        id: "graph",
+        label: "Open knowledge graph",
+        icon: <Network size={14} />,
+        run: onOpenGraph,
+      },
+      {
+        id: "canvas",
+        label: "Open canvas",
+        icon: <Workflow size={14} />,
+        run: onOpenCanvas,
+      },
+      {
+        id: "toggle-explorer",
+        label: "Toggle file explorer",
+        icon: <PanelLeft size={14} />,
+        shortcut: "Ctrl B",
+        run: () => store.togglePanel("leftSidebar"),
+      },
+      {
+        id: "toggle-context",
+        label: "Toggle context panel",
+        icon: <PanelRight size={14} />,
+        shortcut: "Ctrl \\",
+        run: () => store.togglePanel("rightSidebar"),
+      },
+      {
+        id: "focus-mode",
+        label: store.focusMode ? "Leave focus mode" : "Enter focus mode",
+        icon: <Maximize2 size={14} />,
+        shortcut: "Ctrl ⇧ F",
+        run: () => store.toggleFocusMode(),
+      },
+      {
+        id: "theme",
+        label: store.theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
+        icon: store.theme === "dark" ? <Sun size={14} /> : <Moon size={14} />,
+        shortcut: "Ctrl ⇧ D",
+        run: () => void setThemeEverywhere(store.theme === "dark" ? "light" : "dark"),
+      },
+      {
+        id: "settings",
+        label: "Open settings",
+        icon: <Settings size={14} />,
+        shortcut: "Ctrl ,",
+        run: onOpenSettings,
+      },
+      {
+        id: "open-vault",
+        label: "Open vault…",
+        icon: <FolderOpen size={14} />,
+        shortcut: "Ctrl O",
+        run: () => void pickVault("open"),
+      },
+      {
+        id: "create-vault",
+        label: "Create vault…",
+        icon: <FolderPlus size={14} />,
+        run: () => void pickVault("create"),
+      },
+      ...(store.vaultRoot
+        ? [
+            {
+              id: "rebuild-index",
+              label: "Rebuild search index",
+              hint: "Use after importing notes outside NoteCraft",
+              icon: <RefreshCw size={14} />,
+              run: async () => {
+                try {
+                  await api.rebuildIndex();
+                  toast.success("Search index rebuilt");
+                } catch (error) {
+                  toast.error("Could not rebuild the index", { description: String(error) });
+                }
+              },
+            } satisfies PaletteCommand,
+            {
+              id: "close-vault",
+              label: "Close vault",
+              icon: <LogOut size={14} />,
+              run: () => void closeCurrentVault(),
+            } satisfies PaletteCommand,
+          ]
+        : []),
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const commands: Cmd[] = [
-    { id: "new-note", label: "Create new note", run: async () => {
-      const name = prompt("Note name?"); if (!name) return;
-      const rel = name.endsWith(".md") ? name : name + ".md";
-      await api.createFile(rel, `# ${name.replace(/\.md$/, "")}\n`);
-      store.openTab(rel);
-    } },
-    { id: "open-vault", label: "Open vault", run: async () => {
-      const { open } = await import("@tauri-apps/plugin-dialog");
-      const picked = await open({ directory: true });
-      if (typeof picked === "string") { const r = await api.openVault(picked); store.setVaultRoot(r); }
-    } },
-    { id: "toggle-left", label: "Toggle left sidebar", run: () => store.togglePanel("leftSidebar") },
-    { id: "toggle-right", label: "Toggle right sidebar", run: () => store.togglePanel("rightSidebar") },
-    { id: "settings", label: "Open settings", run: () => onOpenSettings() },
-    { id: "rebuild-index", label: "Rebuild search index", run: async () => { await api.rebuildIndex(); alert("Index rebuilt"); } },
-    { id: "graph", label: "Open global graph", run: () => { (window as any).__nc_open_graph?.(); } },
-    { id: "canvas", label: "Open canvas", run: () => { (window as any).__nc_open_canvas?.(); } },
-  ];
+  const text = query.trim().toLowerCase();
+  const visibleCommands = text
+    ? commands.filter((command) => command.label.toLowerCase().includes(text))
+    : commands;
+  const recent = useMemo(() => {
+    if (text) return [];
+    return recentNotes
+      .map((path) => allFiles.find((file) => file.path === path))
+      .filter((file): file is NonNullable<typeof file> => !!file)
+      .slice(0, 5);
+  }, [allFiles, recentNotes, text]);
 
-  if (!open) return null;
+  const select = (action: () => void | Promise<void>) => {
+    onClose();
+    void action();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/60 backdrop-blur-sm nc-anim-fade" onClick={onClose}>
-      <div className="w-[560px] max-w-[90vw] bg-bg-elev/95 backdrop-blur-md border border-border rounded-xl shadow-2xl overflow-hidden nc-anim-scale" onClick={(e) => e.stopPropagation()}>
-        <Command className="w-full">
-          <div className="flex items-center px-3 border-b border-border">
-            <Command.Input autoFocus placeholder="Type a command or search notes…" className="w-full py-3 bg-transparent outline-none text-sm" />
-            <button onClick={onClose}><X size={14} /></button>
-          </div>
-          <Command.List className="max-h-80 overflow-auto nc-scroll p-1">
-            <Command.Empty className="p-3 text-xs text-fg-muted">No results.</Command.Empty>
-            <Command.Group heading="Commands" className="text-[10px] text-fg-muted px-2 py-1">
-              {commands.map((c) => (
-                <Command.Item key={c.id} onSelect={() => { c.run(); onClose(); }} className="px-2 py-1.5 rounded text-sm cursor-pointer data-[selected=true]:bg-bg-muted">
-                  {c.label}
-                </Command.Item>
-              ))}
-            </Command.Group>
-            <Command.Group heading="Notes" className="text-[10px] text-fg-muted px-2 py-1">
-              {pages.map((p) => (
-                <Command.Item key={p} onSelect={() => { store.openTab(p); onClose(); }} className="px-2 py-1.5 rounded text-sm cursor-pointer data-[selected=true]:bg-bg-muted">
-                  {p}
-                </Command.Item>
-              ))}
-            </Command.Group>
-          </Command.List>
-        </Command>
-      </div>
-    </div>
+    <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="nc-overlay" />
+        <Dialog.Content
+          className="nc-palette-wrap"
+          aria-describedby={undefined}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) onClose();
+          }}
+        >
+          <Dialog.Title className="sr-only">Command palette</Dialog.Title>
+          <Command className="nc-palette" label="Command palette" shouldFilter={false} loop>
+            <div className="nc-palette-input-row">
+              <Search size={16} />
+              <Command.Input
+                autoFocus
+                value={query}
+                onValueChange={setQuery}
+                placeholder="Search notes or run a command…"
+                className="nc-palette-input"
+              />
+              {searching && <Loader2 size={13} className="animate-spin text-fg-faint" />}
+              <Kbd>Esc</Kbd>
+            </div>
+
+            <Command.List className="nc-palette-list nc-scroll">
+              <Command.Empty>
+                <div className="px-3 py-8 text-center text-[11.5px] text-fg-muted">
+                  No commands match “{query}”.
+                </div>
+              </Command.Empty>
+
+              {notes.length > 0 && (
+                <Command.Group heading="Notes">
+                  {notes.map((note) => (
+                    <Command.Item
+                      key={`note-${note.path}`}
+                      value={`note-${note.path}`}
+                      className="nc-palette-item"
+                      onSelect={() => select(() => useAppStore.getState().openTab(note.path))}
+                    >
+                      <FileIcon />
+                      <span className="nc-palette-item-body">
+                        <span className="nc-palette-item-title">{note.title}</span>
+                        <span className="nc-palette-item-sub">{dirName(note.path) || "Vault root"}</span>
+                      </span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
+
+              {recent.length > 0 && (
+                <Command.Group heading="Recent notes">
+                  {recent.map((file) => (
+                    <Command.Item
+                      key={`recent-${file.path}`}
+                      value={`recent-${file.path}`}
+                      className="nc-palette-item"
+                      onSelect={() => select(() => useAppStore.getState().openTab(file.path))}
+                    >
+                      <FileIcon />
+                      <span className="nc-palette-item-body">
+                        <span className="nc-palette-item-title">{stem(file.path)}</span>
+                        <span className="nc-palette-item-sub">{dirName(file.path) || "Vault root"}</span>
+                      </span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
+
+              {visibleCommands.length > 0 && (
+                <Command.Group heading="Commands">
+                  {visibleCommands.map((command) => (
+                    <Command.Item
+                      key={command.id}
+                      value={command.id}
+                      className="nc-palette-item"
+                      onSelect={() => select(command.run)}
+                    >
+                      <span className="nc-palette-icon">{command.icon}</span>
+                      <span className="nc-palette-item-body">
+                        <span className="nc-palette-item-title">{command.label}</span>
+                        {command.hint && <span className="nc-palette-item-sub">{command.hint}</span>}
+                      </span>
+                      {command.shortcut && <Kbd>{command.shortcut}</Kbd>}
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
+            </Command.List>
+
+            <div className="nc-palette-foot">
+              <span><Kbd>↑</Kbd><Kbd>↓</Kbd> navigate</span>
+              <span><Kbd>↵</Kbd> select</span>
+              <span><Kbd>Esc</Kbd> close</span>
+              <div className="flex-1" />
+              <span className="inline-flex items-center gap-1">
+                <CommandIcon size={10} /> NoteCraft
+              </span>
+            </div>
+          </Command>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
+}
+
+function FileIcon() {
+  return <FileText size={13} className="nc-palette-icon" />;
 }

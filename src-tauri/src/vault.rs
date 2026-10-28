@@ -222,6 +222,52 @@ mod tests {
     }
 }
 
+/// Flat list of every visible file in the vault (used by the quick switcher,
+/// command palette and vault-wide file filtering).
+pub fn list_all_files(root: &Path, excluded: &[String], show_hidden: bool) -> Vec<FileEntry> {
+    let mut out = Vec::new();
+    for entry in walkdir::WalkDir::new(root).into_iter().filter_entry(|e| {
+        if e.depth() == 0 {
+            return true;
+        }
+        let name = e.file_name().to_string_lossy();
+        if !show_hidden && name.starts_with('.') {
+            return false;
+        }
+        if ensure_excluded(&name, excluded) {
+            return false;
+        }
+        true
+    }) {
+        let Ok(entry) = entry else { continue };
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let Ok(meta) = entry.metadata() else { continue };
+        let name = entry.file_name().to_string_lossy().to_string();
+        let ext = Path::new(&name)
+            .extension()
+            .map(|e| e.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+        let modified = meta
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        out.push(FileEntry {
+            path: to_rel(root, &entry.path()),
+            name,
+            is_dir: false,
+            size: meta.len(),
+            modified,
+            extension: ext,
+        });
+    }
+    out.sort_by(|a, b| a.path.to_lowercase().cmp(&b.path.to_lowercase()));
+    out
+}
+
 pub fn walk_markdown(root: &Path, excluded: &[String]) -> Vec<PathBuf> {
     let mut out = Vec::new();
     for entry in walkdir::WalkDir::new(root).into_iter().filter_entry(|e| {

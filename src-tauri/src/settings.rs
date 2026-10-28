@@ -4,7 +4,7 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
-    pub theme: String, // "system" | "light" | "dark"
+    pub theme: String, // "light" | "dark"
     pub accent: String,
     pub editor_font_size: u32,
     pub editor_line_height: f32,
@@ -25,8 +25,8 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            theme: "system".into(),
-            accent: "#7c3aed".into(),
+            theme: "dark".into(),
+            accent: "#8b5cf6".into(),
             editor_font_size: 15,
             editor_line_height: 1.6,
             editor_font_family: "Inter, system-ui, sans-serif".into(),

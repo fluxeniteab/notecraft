@@ -35,6 +35,7 @@ pub fn run() {
             commands::get_vault_root,
             commands::list_recent_vaults,
             commands::list_dir,
+            commands::list_all_files,
             commands::read_file,
             commands::write_file,
             commands::create_file,

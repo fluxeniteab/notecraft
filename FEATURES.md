@@ -28,7 +28,7 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 
 ## Editor
 - [x] Source mode
-- [x] Live-preview mode (mode toggle; CM6 markdown lang)
+- [x] Live-preview mode (CodeMirror decorations reveal Markdown syntax on the active line)
 - [x] Reading mode (sanitized HTML)
 - [x] Split editing/preview
 - [x] Syntax highlighting (CM6)
@@ -94,7 +94,7 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 
 ## Search
 - [x] Full-text (Tantivy)
-- [x] Incremental indexing (rebuild)
+- [~] Incremental indexing (note saves update the index; Rust CI verification pending)
 - [x] Snippets/highlighting
 - [x] Search-as-you-type (UI manual)
 - [x] Filters (folder/tag in backend)
@@ -135,7 +135,7 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 - [x] Status bar
 
 ## Themes & customization
-- [x] Light/dark/system
+- [x] Dark/light themes (legacy system theme migrates to dark)
 - [x] Accent color
 - [x] CSS variables
 - [x] Editor typography settings

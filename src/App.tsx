@@ -1,8 +1,19 @@
-import { useEffect, useState } from "react";
-import { Panel as ResizablePanel, PanelGroup as ResizablePanelGroup, PanelResizeHandle as ResizableHandle } from "react-resizable-panels";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Panel as ResizablePanel,
+  PanelGroup as ResizablePanelGroup,
+  PanelResizeHandle as ResizableHandle,
+} from "react-resizable-panels";
+import { toast, Toaster } from "sonner";
+import { Minimize2 } from "lucide-react";
 import { useAppStore } from "./store/appStore";
 import { api } from "./lib/tauri";
-import { applyTheme } from "./lib/theme";
+import { applyTheme, isTauri, normalizeTheme } from "./lib/theme";
+import { flushAll, flushTab } from "./lib/saveRegistry";
+import { pickVault, refreshVault } from "./lib/vaultActions";
+import { createNote } from "./lib/noteActions";
+import { setThemeEverywhere } from "./lib/settingsActions";
+import TitleBar from "./components/TitleBar";
 import Sidebar from "./components/Sidebar";
 import TabBar from "./components/TabBar";
 import EditorArea from "./components/EditorArea";
@@ -13,94 +24,292 @@ import QuickSwitcher from "./components/QuickSwitcher";
 import SettingsDialog from "./components/SettingsDialog";
 import GraphView from "./components/GraphView";
 import CanvasView from "./components/CanvasView";
+import { TooltipProvider } from "./components/ui";
 
 export default function App() {
-  const { panels, setVaultRoot, setRecentVaults, setSettings, theme, settings } = useAppStore();
+  const theme = useAppStore((s) => s.theme);
+  const settings = useAppStore((s) => s.settings);
+  const panels = useAppStore((s) => s.panels);
+  const focusMode = useAppStore((s) => s.focusMode);
+  const commandPaletteOpen = useAppStore((s) => s.commandPaletteOpen);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
   const [canvasOpen, setCanvasOpen] = useState(false);
+  const layoutTimer = useRef<number | null>(null);
 
+  // Apply theme and editor metrics whenever they change.
   useEffect(() => {
-    (window as any).__nc_open_graph = () => setGraphOpen(true);
-    (window as any).__nc_open_canvas = () => setCanvasOpen(true);
-    return () => { delete (window as any).__nc_open_graph; delete (window as any).__nc_open_canvas; };
+    applyTheme(theme, {
+      accent: settings?.accent,
+      reducedMotion: settings?.reduced_motion,
+      highContrast: settings?.high_contrast,
+      editorFontSize: settings?.editor_font_size,
+      editorLineHeight: settings?.editor_line_height,
+      readingWidth: settings?.reading_width,
+    });
+  }, [theme, settings]);
+
+  // Bootstrap backend settings, recents and (if still valid) the open vault.
+  useEffect(() => {
+    let alive = true;
+    api
+      .getSettings()
+      .then((loaded) => {
+        if (!alive) return;
+        const normalized = normalizeTheme(loaded.theme);
+        useAppStore.getState().setSettings({ ...loaded, theme: normalized });
+        useAppStore.getState().setTheme(normalized);
+        if (loaded.theme !== normalized) {
+          void api.saveSettings({ ...loaded, theme: normalized }).catch(() => {});
+        }
+      })
+      .catch(() => {
+        /* Browser preview or first run: keep local defaults. */
+      });
+    api.listRecentVaults().then((vaults) => alive && useAppStore.getState().setRecentVaults(vaults)).catch(() => {});
+    api
+      .getVaultRoot()
+      .then((root) => {
+        if (!alive || !root) return;
+        useAppStore.getState().setVaultRoot(root);
+        void refreshVault();
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
   }, []);
 
+  // Flush unsaved buffers when the native window is closed.
   useEffect(() => {
-    api.getSettings().then((s) => {
-      setSettings(s);
-      if (s.theme) useAppStore.getState().setTheme(s.theme as "system" | "light" | "dark");
-    }).catch(() => {});
-    api.listRecentVaults().then(setRecentVaults).catch(() => {});
-    api.getVaultRoot().then((r) => setVaultRoot(r)).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    applyTheme(theme, settings?.accent, settings?.reduced_motion, settings?.high_contrast);
-  }, [theme, settings?.accent, settings?.reduced_motion, settings?.high_contrast]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") {
-        e.preventDefault();
-        useAppStore.getState().setCommandPaletteOpen(true);
+    if (!isTauri()) return;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void (async () => {
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        const win = getCurrentWindow();
+        unlisten = await win.onCloseRequested(async (event) => {
+          event.preventDefault();
+          await flushAll();
+          const { saveStatus } = useAppStore.getState();
+          if (Object.values(saveStatus).some((status) => status === "error" || status === "dirty" || status === "saving")) {
+            toast.error("Some notes are still unsaved, so the window stayed open.", {
+              description: "Check the save indicator, copy anything important, then close again.",
+            });
+            return;
+          }
+          try {
+            await win.destroy();
+          } catch {
+            await win.close();
+          }
+        });
+        if (disposed) unlisten();
+      } catch {
+        /* not running in Tauri */
       }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "o") {
-        e.preventDefault();
-        useAppStore.getState().setQuickSwitcherOpen(true);
+    })();
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
+
+  const handleLayout = useCallback((sizes: number[]) => {
+    if (layoutTimer.current) window.clearTimeout(layoutTimer.current);
+    layoutTimer.current = window.setTimeout(() => {
+      const store = useAppStore.getState();
+      const { leftSidebar, rightSidebar } = store.panels;
+      if (leftSidebar) store.setPanelWidth("leftWidth", sizes[0]);
+      if (rightSidebar) store.setPanelWidth("rightWidth", sizes[sizes.length - 1]);
+    }, 160);
+  }, []);
+
+  // Global shortcuts. Modifier shortcuts work while writing; bare keys do not.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const store = useAppStore.getState();
+      const mod = event.ctrlKey || event.metaKey;
+      const key = event.key.toLowerCase();
+
+      if (!mod) {
+        if (event.key === "Escape" && store.focusMode) {
+          store.setFocusMode(false);
+        }
+        return;
+      }
+
+      const inPalette = store.commandPaletteOpen || store.quickSwitcherOpen;
+
+      if (key === "k") {
+        event.preventDefault();
+        store.setQuickSwitcherOpen(false);
+        store.setCommandPaletteOpen(!store.commandPaletteOpen);
+        return;
+      }
+      if (key === "p") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          store.setCommandPaletteOpen(true);
+        } else {
+          store.setCommandPaletteOpen(false);
+          store.setQuickSwitcherOpen(!store.quickSwitcherOpen);
+        }
+        return;
+      }
+      if (inPalette) return;
+
+      if (key === "s") {
+        event.preventDefault();
+        const activeId = store.activeTabId;
+        if (activeId) void flushTab(activeId);
+        return;
+      }
+      if (key === "n") {
+        event.preventDefault();
+        if (store.vaultRoot) void createNote();
+        return;
+      }
+      if (key === "w") {
+        event.preventDefault();
+        const activeId = store.activeTabId;
+        if (activeId) {
+          void flushTab(activeId).then(() => {
+            if (useAppStore.getState().saveStatus[activeId] === "error") {
+              toast.error("This note could not be saved, so it was kept open");
+              return;
+            }
+            useAppStore.getState().closeTab(activeId);
+          });
+        }
+        return;
+      }
+      if (key === "b") {
+        event.preventDefault();
+        store.togglePanel("leftSidebar");
+        return;
+      }
+      if (key === "\\") {
+        event.preventDefault();
+        store.togglePanel("rightSidebar");
+        return;
+      }
+      if (key === ",") {
+        event.preventDefault();
+        setSettingsOpen(true);
+        return;
+      }
+      if (key === "o") {
+        event.preventDefault();
+        void pickVault("open");
+        return;
+      }
+      if (key === "f" && event.shiftKey) {
+        event.preventDefault();
+        store.toggleFocusMode();
+        return;
+      }
+      if (key === "d" && event.shiftKey) {
+        event.preventDefault();
+        void setThemeEverywhere(store.theme === "dark" ? "light" : "dark");
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  return (
-    <div className="h-full flex flex-col bg-bg text-fg overflow-hidden">
-      {/* Title bar */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-border bg-bg-elev/80 backdrop-blur-sm select-none" style={{ WebkitAppRegion: "drag" } as any}>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-accent shadow-[0_0_12px_var(--nc-accent)]" />
-          <span className="font-semibold text-sm tracking-tight">NoteCraft</span>
-        </div>
-        <span className="text-fg-muted text-xs hidden md:inline">local-first knowledge base</span>
-        <div className="flex-1" />
-        <button className="text-xs px-3 py-1 rounded-md hover:bg-bg-muted transition-colors nc-btn" style={{ WebkitAppRegion: "no-drag" } as any} onClick={() => setSettingsOpen(true)}>Settings</button>
-      </div>
-      {/* Main workspace */}
-      <div className="flex-1 min-h-0">
-        <ResizablePanelGroup direction="horizontal" className="h-full">
-          {panels.leftSidebar && (
-            <>
-              <ResizablePanel defaultSize={20} minSize={12} maxSize={40} className="transition-all duration-200">
-                <Sidebar />
-              </ResizablePanel>
-              <ResizableHandle className="w-1 bg-border hover:bg-accent transition-colors" />
-            </>
-          )}
-          <ResizablePanel defaultSize={panels.rightSidebar ? 55 : 80} minSize={30}>
-            <div className="h-full flex flex-col min-h-0 bg-bg">
-              <TabBar />
-              <div className="flex-1 min-h-0 relative">
-                <EditorArea />
-              </div>
-              <StatusBar />
-            </div>
-          </ResizablePanel>
-          {panels.rightSidebar && (
-            <>
-              <ResizableHandle className="w-1 bg-border hover:bg-accent transition-colors" />
-              <ResizablePanel defaultSize={25} minSize={15} maxSize={45} className="transition-all duration-200">
-                <RightSidebar />
-              </ResizablePanel>
-            </>
-          )}
-        </ResizablePanelGroup>
-      </div>
-      <CommandPalette open={useAppStore((s) => s.commandPaletteOpen)} onClose={() => useAppStore.getState().setCommandPaletteOpen(false)} onOpenSettings={() => setSettingsOpen(true)} />
-      <QuickSwitcher />
-      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      <GraphView open={graphOpen} onClose={() => setGraphOpen(false)} />
-      <CanvasView open={canvasOpen} onClose={() => setCanvasOpen(false)} />
+  const main = (
+    <div className="nc-main">
+      {!focusMode && <TabBar />}
+      <EditorArea />
     </div>
+  );
+
+  return (
+    <TooltipProvider delayDuration={380} skipDelayDuration={120}>
+      <div className="nc-app">
+        {!focusMode && <TitleBar onOpenSettings={() => setSettingsOpen(true)} />}
+
+        {focusMode ? (
+          <div className="relative min-h-0 flex-1">{main}</div>
+        ) : (
+          <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1" onLayout={handleLayout}>
+            {panels.leftSidebar && (
+              <>
+                <ResizablePanel
+                  id="left"
+                  order={1}
+                  defaultSize={panels.leftWidth}
+                  minSize={12}
+                  maxSize={40}
+                >
+                  <Sidebar />
+                </ResizablePanel>
+                <ResizableHandle className="nc-resize-handle" />
+              </>
+            )}
+            <ResizablePanel id="main" order={2} minSize={30}>
+              {main}
+            </ResizablePanel>
+            {panels.rightSidebar && (
+              <>
+                <ResizableHandle className="nc-resize-handle" />
+                <ResizablePanel
+                  id="right"
+                  order={3}
+                  defaultSize={panels.rightWidth}
+                  minSize={14}
+                  maxSize={42}
+                >
+                  <RightSidebar />
+                </ResizablePanel>
+              </>
+            )}
+          </ResizablePanelGroup>
+        )}
+
+        {!focusMode && <StatusBar />}
+
+        {focusMode && (
+          <button
+            type="button"
+            className="nc-focus-exit"
+            onClick={() => useAppStore.getState().setFocusMode(false)}
+          >
+            <Minimize2 size={13} /> Exit focus mode <kbd className="nc-kbd">Esc</kbd>
+          </button>
+        )}
+
+        <CommandPalette
+          open={commandPaletteOpen}
+          onClose={() => useAppStore.getState().setCommandPaletteOpen(false)}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenGraph={() => setGraphOpen(true)}
+          onOpenCanvas={() => setCanvasOpen(true)}
+        />
+        <QuickSwitcher />
+        <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <GraphView open={graphOpen} onClose={() => setGraphOpen(false)} />
+        <CanvasView open={canvasOpen} onClose={() => setCanvasOpen(false)} />
+
+        <Toaster
+          theme={theme}
+          position="bottom-right"
+          offset={16}
+          gap={8}
+          toastOptions={{
+            style: {
+              background: "var(--nc-elev)",
+              color: "var(--nc-fg)",
+              border: "1px solid var(--nc-border)",
+              borderRadius: "var(--nc-r-md)",
+              boxShadow: "var(--nc-shadow-lg)",
+              fontSize: "12px",
+            },
+          }}
+        />
+      </div>
+    </TooltipProvider>
   );
 }

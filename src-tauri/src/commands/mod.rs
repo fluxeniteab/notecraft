@@ -27,6 +27,9 @@ pub fn open_vault(path: String, state: State<AppState>) -> AppResult<String> {
         g.recent_vaults.truncate(10);
     }
     persist_recent(&g.recent_vaults);
+    drop(g);
+    let _ = rebuild_link_index(&state);
+    crate::search::mark_stale();
     Ok(path)
 }
 
@@ -42,6 +45,9 @@ pub fn create_vault(path: String, state: State<AppState>) -> AppResult<String> {
         g.recent_vaults.truncate(10);
     }
     persist_recent(&g.recent_vaults);
+    drop(g);
+    let _ = rebuild_link_index(&state);
+    crate::search::mark_stale();
     Ok(path)
 }
 
@@ -89,6 +95,60 @@ where
     f(&root)
 }
 
+/// Rebuild the on-disk link/tag index. Runs when a vault is opened so
+/// backlinks, tags and the graph work immediately instead of only for notes
+/// that have been saved during the current session.
+fn rebuild_link_index(state: &State<AppState>) -> AppResult<()> {
+    let (root, excluded) = {
+        let g = state.inner.lock();
+        let root = g
+            .vault_root
+            .clone()
+            .ok_or(crate::error::AppError::NoVault)?;
+        (root, g.settings.excluded_folders.clone())
+    };
+    {
+        let g = state.inner.lock();
+        if let Some(conn) = g.db.as_ref() {
+            let _ = conn.execute("DELETE FROM links", []);
+            let _ = conn.execute("DELETE FROM note_tags", []);
+            let _ = conn.execute("UPDATE tags SET count=0", []);
+            let _ = conn.execute("DELETE FROM tasks", []);
+            let _ = conn.execute("DELETE FROM properties", []);
+        }
+    }
+    for path in vault::walk_markdown(&root, &excluded) {
+        let rel = vault::to_rel(&root, &path);
+        let content = std::fs::read_to_string(&path).unwrap_or_default();
+        let g = state.inner.lock();
+        if let Some(conn) = g.db.as_ref() {
+            let _ = crate::links::rebuild_for_note(conn, &rel, &content);
+        }
+    }
+    Ok(())
+}
+
+/// Drop link/tag rows for a deleted, renamed or moved path (and its children).
+fn purge_link_index(state: &State<AppState>, rel: &str) {
+    let g = state.inner.lock();
+    if let Some(conn) = g.db.as_ref() {
+        let like = format!("{}/%", rel);
+        let _ = conn.execute(
+            "DELETE FROM links WHERE source=?1 OR source LIKE ?2",
+            rusqlite::params![rel, like],
+        );
+        let _ = conn.execute(
+            "DELETE FROM note_tags WHERE note_path=?1 OR note_path LIKE ?2",
+            rusqlite::params![rel, like],
+        );
+        let _ = conn.execute(
+            "UPDATE tags SET count=(SELECT COUNT(*) FROM note_tags WHERE note_tags.tag=tags.name)",
+            [],
+        );
+        let _ = conn.execute("DELETE FROM tags WHERE count=0", []);
+    }
+}
+
 #[tauri::command]
 pub fn list_dir(rel: String, state: State<AppState>) -> AppResult<Vec<vault::FileEntry>> {
     with_root(&state, |root| {
@@ -97,6 +157,17 @@ pub fn list_dir(rel: String, state: State<AppState>) -> AppResult<Vec<vault::Fil
         let show_hidden = g.settings.hidden_files;
         drop(g);
         vault::list_dir(root, &rel, &excluded, show_hidden)
+    })
+}
+
+#[tauri::command]
+pub fn list_all_files(state: State<AppState>) -> AppResult<Vec<vault::FileEntry>> {
+    with_root(&state, |root| {
+        let g = state.inner.lock();
+        let excluded = g.settings.excluded_folders.clone();
+        let show_hidden = g.settings.hidden_files;
+        drop(g);
+        Ok(vault::list_all_files(root, &excluded, show_hidden))
     })
 }
 
@@ -111,21 +182,28 @@ pub fn write_file(rel: String, content: String, state: State<AppState>) -> AppRe
         vault::write_file_atomic(root, &rel, &content)?;
         Ok(())
     })?;
-    // update db links
-    if rel.ends_with(".md") || rel.ends_with(".markdown") {
+    // keep the search index and link database in sync with saves
+    if is_markdown(&rel) {
+        let _ = crate::search::index_note(&state, &rel, &content);
         let g = state.inner.lock();
         if let Some(conn) = g.db.as_ref() {
-            // read content already; use provided
             let _ = crate::links::rebuild_for_note(conn, &rel, &content);
         }
     }
-    // snapshot maybe
     Ok(())
 }
 
 #[tauri::command]
 pub fn create_file(rel: String, content: String, state: State<AppState>) -> AppResult<()> {
-    with_root(&state, |root| vault::create_file(root, &rel, &content))
+    with_root(&state, |root| vault::create_file(root, &rel, &content))?;
+    if is_markdown(&rel) {
+        let _ = crate::search::index_note(&state, &rel, &content);
+        let g = state.inner.lock();
+        if let Some(conn) = g.db.as_ref() {
+            let _ = crate::links::rebuild_for_note(conn, &rel, &content);
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -135,17 +213,45 @@ pub fn create_dir(rel: String, state: State<AppState>) -> AppResult<()> {
 
 #[tauri::command]
 pub fn delete_path(rel: String, trash: bool, state: State<AppState>) -> AppResult<()> {
-    with_root(&state, |root| vault::delete_path(root, &rel, trash))
+    with_root(&state, |root| vault::delete_path(root, &rel, trash))?;
+    purge_link_index(&state, &rel);
+    let _ = crate::search::remove_note(&state, &rel);
+    // A deleted folder can contain any number of notes; a rebuild is the only
+    // reliable way to purge those documents from the index.
+    crate::search::mark_stale();
+    Ok(())
 }
 
 #[tauri::command]
 pub fn rename_path(from: String, to: String, state: State<AppState>) -> AppResult<()> {
-    with_root(&state, |root| vault::rename_path(root, &from, &to))
+    with_root(&state, |root| vault::rename_path(root, &from, &to))?;
+    purge_link_index(&state, &from);
+    let _ = crate::search::remove_note(&state, &from);
+    if is_markdown(&to) {
+        if let Ok(content) = with_root(&state, |root| vault::read_file(root, &to)) {
+            let _ = crate::search::index_note(&state, &to, &content);
+        }
+    }
+    crate::search::mark_stale();
+    Ok(())
 }
 
 #[tauri::command]
 pub fn move_path(from: String, to_dir: String, state: State<AppState>) -> AppResult<String> {
-    with_root(&state, |root| vault::move_path(root, &from, &to_dir))
+    let dest = with_root(&state, |root| vault::move_path(root, &from, &to_dir))?;
+    purge_link_index(&state, &from);
+    let _ = crate::search::remove_note(&state, &from);
+    if is_markdown(&dest) {
+        if let Ok(content) = with_root(&state, |root| vault::read_file(root, &dest)) {
+            let _ = crate::search::index_note(&state, &dest, &content);
+        }
+    }
+    crate::search::mark_stale();
+    Ok(dest)
+}
+
+fn is_markdown(rel: &str) -> bool {
+    rel.ends_with(".md") || rel.ends_with(".markdown")
 }
 
 // ---------- markdown ----------

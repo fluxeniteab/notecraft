@@ -246,8 +246,79 @@ pub fn parse(content: &str) -> ParsedNote {
     }
 }
 
+fn escape_attr(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
+/// Turn `[[Target]]`, `[[Target|Alias]]` and `[[Target#Heading]]` into real
+/// anchors so the preview can navigate the vault. Fenced code blocks are left
+/// untouched.
+fn expand_wikilinks(body: &str) -> String {
+    let re = Regex::new(r"\[\[([^\]|#]*)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]").unwrap();
+    let mut out = String::with_capacity(body.len());
+    let mut in_fence = false;
+    for (i, line) in body.lines().enumerate() {
+        if i > 0 {
+            out.push('\n');
+        }
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_fence = !in_fence;
+            out.push_str(line);
+            continue;
+        }
+        if in_fence {
+            out.push_str(line);
+            continue;
+        }
+        let replaced = re.replace_all(line, |caps: &regex::Captures| {
+            let target = caps.get(1).map(|m| m.as_str().trim()).unwrap_or("");
+            let heading = caps.get(2).map(|m| m.as_str().trim());
+            let label = caps
+                .get(3)
+                .map(|m| m.as_str().trim())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| {
+                    if target.is_empty() {
+                        heading.unwrap_or("")
+                    } else {
+                        target
+                    }
+                });
+            // Same-page links such as [[#Heading]] link to the heading itself.
+            let mut href = if target.is_empty() {
+                String::new()
+            } else if target.to_lowercase().ends_with(".md")
+                || target.to_lowercase().ends_with(".markdown")
+            {
+                target.to_string()
+            } else {
+                format!("{}.md", target)
+            };
+            if let Some(h) = heading {
+                href.push('#');
+                href.push_str(&h.replace(' ', "%20"));
+            }
+            if target.is_empty() && heading.is_none() {
+                return caps.get(0).map(|m| m.as_str().to_string()).unwrap_or_default();
+            }
+            format!(
+                "<a class=\"nc-wikilink\" href=\"{}\">{}</a>",
+                escape_attr(&href),
+                escape_attr(label)
+            )
+        });
+        out.push_str(&replaced);
+    }
+    out
+}
+
 pub fn render_html(content: &str) -> String {
-    let (fm, body) = parse_frontmatter(content);
+    let (_fm, body) = parse_frontmatter(content);
+    let body = expand_wikilinks(&body);
     let mut opts = Options::empty();
     opts.insert(Options::ENABLE_TABLES);
     opts.insert(Options::ENABLE_FOOTNOTES);
@@ -303,6 +374,37 @@ mod tests {
         let ts = extract_tasks(body);
         assert_eq!(ts.len(), 2);
         assert!(ts[1].done);
+    }
+
+    #[test]
+    fn wikilinks_render_as_anchors() {
+        let html = expand_wikilinks("See [[Other]] and [[Folder/Deep Note|alias]].");
+        assert!(html.contains("href=\"Other.md\""));
+        assert!(html.contains("href=\"Folder/Deep Note.md\""));
+        assert!(html.contains(">alias</a>"));
+    }
+
+    #[test]
+    fn wikilinks_keep_markdown_extension() {
+        let html = expand_wikilinks("[[Other.md]]");
+        assert!(html.contains("href=\"Other.md\""));
+        assert!(!html.contains("Other.md.md"));
+    }
+
+    #[test]
+    fn wikilink_headings_and_same_page_links() {
+        let html = expand_wikilinks("[[Note#My Heading]] then [[#Local Heading]]");
+        assert!(html.contains("href=\"Note.md#My%20Heading\""));
+        assert!(html.contains("href=\"#Local%20Heading\""));
+        assert!(html.contains(">Local Heading</a>"));
+    }
+
+    #[test]
+    fn wikilinks_inside_fences_are_left_alone() {
+        let body = "```\n[[Not a link]]\n```\n[[Real]]";
+        let html = expand_wikilinks(body);
+        assert!(html.contains("[[Not a link]]"));
+        assert!(html.contains("href=\"Real.md\""));
     }
 }
 
