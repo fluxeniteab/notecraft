@@ -65,14 +65,15 @@ fn scalar_preview(value: &Value) -> String {
         Value::Bool(flag) => flag.to_string(),
         Value::Number(number) => number.to_string(),
         Value::String(text) => {
-            // Keep the tree readable: collapse whitespace and truncate long
-            // strings, but never silently coerce the value itself.
+            // Keep the tree readable: collapse whitespace, truncate long strings
+            // and re-escape quotes/backslashes so the preview is unambiguous.
             let clean = text.replace(['\n', '\r', '\t'], " ");
             let mut shown: String = clean.chars().take(120).collect();
             if clean.chars().count() > 120 {
                 shown.push('…');
             }
-            format!("\"{shown}\"")
+            let escaped = shown.replace('\\', "\\\\").replace('"', "\\\"");
+            format!("\"{escaped}\"")
         }
         Value::Array(items) => format!("[{} items]", items.len()),
         Value::Object(map) => format!("{{{} keys}}", map.len()),
@@ -294,7 +295,8 @@ mod tests {
         };
         assert_eq!(by_key("emoji"), "\"🎉\"");
         assert_eq!(by_key("quote"), "\"say \\\"hi\\\"\"");
-        assert_eq!(by_key("path"), "\"a\\b\"");
+        // Backslashes are re-escaped so a string preview is unambiguous.
+        assert_eq!(by_key("path"), "\"a\\\\b\"");
     }
 
     #[test]

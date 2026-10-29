@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Document-format registry.** One table (Rust `doc_types.rs`, mirrored in
+  `documentTypes.ts`) decides the editor language, preview mode, statistics mode and
+  validator for every supported extension: `.md`, `.mdx`, `.json`, `.yaml`/`.yml`,
+  `.html`, `.css`, `.js`/`.jsx`, `.ts`/`.tsx`, `.txt`.
+- **Dedicated JSON view.** Validation with line/column, a collapsible tree with key/value
+  filter and RFC 6901 JSON Pointer copy, and Format/Minify actions that refuse to touch
+  invalid source. JSON keys are shown in document order.
+- JSON and the other supported text formats are now indexed for search.
+- Status bar shows the active document type, lines for data/code files and a JSON
+  validity badge, instead of always reporting Markdown statistics.
+
+### Changed
+- **Plugins are permission-scoped.** The plugin context only exposes commands covered by
+  the manifest's declared permissions, unknown permissions are rejected at install time,
+  the app store is read-only for plugins, and installing a plugin no longer runs it —
+  enabling is an explicit action in Settings.
+- JSON parsing uses `serde_json` (with `preserve_order`), so diagnostics are accurate and
+  the structured view matches the file.
+
+### Fixed
+- Creating `page.mdx` produced `page.mdx.md`; explicit supported extensions are respected.
+- New `.json` files were created with a Markdown heading and were therefore invalid.
+- Duplicating a non-Markdown file changed its extension.
+- JSON tabs were highlighted and previewed as Markdown.
+- A JSON tab's preview replaced the source outline with Markdown headings.
+
 ## 0.2.1
 
 ### Added

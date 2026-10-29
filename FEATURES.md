@@ -2,14 +2,24 @@
 
 Legend: [x] implemented & tested, [~] partial, [ ] planned
 
-## Document engine (0.2.1)
+## Document engine
 - [x] Own Rust renderer for Markdown (no third-party Markdown parser)
+- [x] Explicit document-format registry (`doc_types.rs` + `documentTypes.ts`): kind, editor language, preview mode, statistics mode and validator per extension
+- [x] Supported types: `.md`, `.mdx`, `.json`, `.yaml`/`.yml`, `.html`, `.css`, `.js`/`.jsx`, `.ts`/`.tsx`, `.txt`
+- [x] Creating a file keeps the extension the user typed (`page.mdx`, never `page.mdx.md`)
+- [x] Type-specific starter content, so a new `.json` file is valid JSON
 - [x] MDX: JSX component blocks, `{expressions}` and ESM lines surfaced, rest rendered
-- [x] JSON converted to a human-readable outline (invalid JSON reported with position)
+- [x] MDX is never executed — no JSX runtime, no imports, no Tauri access from a document
+- [x] JSON: dedicated structured view with validation (line/column), collapsible tree, key/value filter and JSON Pointer copy
+- [x] JSON Format / Minify actions that parse first and refuse to touch invalid source
+- [x] JSON object keys displayed in document order (not alphabetised)
+- [x] Code-like documents preview as escaped source instead of being rendered as Markdown
+- [x] Editor language follows the file type (JSON, JavaScript/TypeScript, Markdown)
+- [x] Status bar reports the real type: words/chars for prose, lines and JSON validity for data
+- [x] Text index covers every supported type; wiki links/tags stay Markdown-only
 - [x] Nested lists, task lists, tables, callouts, footnotes, frontmatter card, wiki links
 - [x] Preview HTML escapes all user text and is sanitised again before insertion
-- [x] `render_document` command picks the dialect from the file extension
-- [x] `.mdx` notes indexed and searched like Markdown
+- [x] `render_document` command dispatches on the file extension; never silently falls back to Markdown
 
 ## AI assistant (0.2.1)
 - [x] Provider presets: DeepSeek, Google Gemini, Mistral, OpenAI, OpenRouter, Groq
@@ -27,11 +37,15 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 - [x] Drag-and-drop or file-picker install of `plugin_xyz.zip`
 - [x] Manifest validation (`plugin.json`), id/folder sanitisation, zip-slip guard
 - [x] Optional `style.css` injected, optional `icon.png`/SVG shown in settings
-- [x] ES module entry with a typed app context (`api`, `toast`, `store`)
+- [x] ES module entry with a typed app context (`api`, `notify`, read-only `store`)
+- [x] Permission-scoped API: `notes:read`, `notes:write`, `notes:create`, `notes:delete`, `links:read`, `ui:notify`, `editor:open`, `settings:read`
+- [x] Unknown permissions rejected at install time, so the list shown is complete
+- [x] Plugins never reach profile/password, AI keys, settings writes or plugin management
+- [x] Installed plugins start disabled; enabling is an explicit user action
 - [x] Enable/disable (styles removed), uninstall removes the folder
 - [x] TypeScript accepted when the compiled `.js` is shipped
 - [x] Documentation in `docs/PLUGINS.md`
-- [ ] Sandboxing of plugin code (plugins run with app privileges)
+- [ ] True sandboxing (plugin modules still share the webview realm; documented as trusted code)
 
 ## Local accounts, encryption and distribution (0.2.0)
 - [x] Local profiles: one encrypted vault per username in the app data folder

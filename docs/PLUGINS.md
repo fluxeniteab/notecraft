@@ -26,7 +26,7 @@ TypeScript is accepted **only** with a compiled sibling: ship `index.ts` and
   "version": "1.0.0",
   "description": "Adds a word-count badge to the editor.",
   "author": "you",
-  "permissions": ["vault:read", "ui"],
+  "permissions": ["notes:read", "ui:notify"],
   "main": "index.js",
   "style": "style.css",
   "icon": "icon.png"
@@ -35,6 +35,39 @@ TypeScript is accepted **only** with a compiled sibling: ship `index.ts` and
 
 `id` must use letters, digits, dashes and underscores (max 64 characters), and
 is used as the install folder name. Installing the same id replaces the package.
+
+## Permissions
+
+Permissions are validated at install time: an unknown permission is rejected
+instead of being silently ignored, so the list shown in Settings is complete.
+
+| Permission | Unlocks |
+| --- | --- |
+| `notes:read` | read files, list folders, search, parse, tasks, snapshots |
+| `notes:write` | overwrite existing files, rename, move, snapshot |
+| `notes:create` | create files and folders |
+| `notes:delete` | move a file or folder to the trash |
+| `links:read` | backlinks, outgoing links, unresolved links, graph data |
+| `ui:notify` | `context.notify(...)` |
+| `editor:open` | reserved for opening documents |
+| `settings:read` | read the active settings object |
+
+`notes:write` and `notes:delete` are marked sensitive: they can overwrite or
+remove user data, so Settings highlights them before you enable a plugin.
+
+Plugins **cannot** reach profile or password commands, AI provider
+configuration (which holds API keys), settings writes, plugin management,
+backups, sync or import/export through the plugin context.
+
+### Trust boundary (read this)
+
+The plugin context is permission-scoped, but a plugin's JavaScript module shares
+the webview realm with the application. It is **not** a sandbox: a determined
+plugin can call the Tauri bridge directly. Treat plugins as trusted code.
+
+Because of that, installing a plugin never runs it. A plugin only executes after
+you explicitly enable it in **Settings → Plugins**, and disabling it removes its
+styles and stops it from being started on the next launch.
 
 ## Runtime API
 

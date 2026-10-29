@@ -370,7 +370,9 @@ pub fn import_zip(path: &str, state: &State<AppState>) -> AppResult<PluginInfo> 
         version: manifest.version.clone(),
         author: manifest.author.clone(),
         description: manifest.description.clone(),
-        enabled: true,
+        // Installed plugins start disabled: the user reviews the permissions
+        // shown in Settings and enables the plugin explicitly.
+        enabled: false,
         permissions: manifest.permissions.clone(),
     })
 }

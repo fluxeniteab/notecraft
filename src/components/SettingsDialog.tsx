@@ -212,11 +212,12 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
       setInstalling(true);
       try {
         const plugin = await pluginEngine.importZip(path);
-        toast.success("Plugin installed", { description: `${plugin.name} v${plugin.version}` });
+        // Installing never executes plugin code. Review the permissions and
+        // enable it deliberately (see docs/PLUGINS.md).
+        toast.success("Plugin installed", {
+          description: `${plugin.name} v${plugin.version} — review its permissions, then enable it`,
+        });
         loadPlugins();
-        await loadPlugin(plugin).catch((error) =>
-          toast.error("Installed, but could not start", { description: String(error) })
-        );
       } catch (error) {
         toast.error("Could not install the plugin", { description: String(error) });
       } finally {
