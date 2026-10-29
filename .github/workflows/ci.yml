@@ -71,3 +71,23 @@ jobs:
 
       - name: Release build
         run: cargo build --release
+
+      # Keep a downloadable binary from every green run, so a build can be tried
+      # without cutting a release. Tagged releases come from release.yml.
+      - name: Collect binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cp target/release/notecraft.exe "dist/notecraft-$RUNNER_OS-x64.exe"
+          else
+            cp target/release/notecraft "dist/notecraft-$RUNNER_OS-${{ runner.arch }}"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notecraft-${{ runner.os }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
