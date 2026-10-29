@@ -272,7 +272,7 @@ fn sanitize(html: &str) -> String {
     builder.add_tag_attributes("a", ["class", "rel", "href", "title"]);
     builder.add_tag_attributes("img", ["src", "alt", "title", "loading"]);
     builder.add_tag_attributes("code", ["class"]);
-    builder.clean(html)
+    builder.clean(html).to_string()
 }
 
 /// Render Markdown through the NoteCraft engine.
