@@ -10,6 +10,7 @@ import { Minimize2 } from "lucide-react";
 import { useAppStore } from "./store/appStore";
 import { api } from "./lib/tauri";
 import { applyTheme, isTauri, normalizeTheme } from "./lib/theme";
+import { loadPlugin } from "./lib/pluginRuntime";
 import { flushAll, flushTab } from "./lib/saveRegistry";
 import { pickVault, refreshVault } from "./lib/vaultActions";
 import { createNote } from "./lib/noteActions";
@@ -126,6 +127,19 @@ export default function App() {
     const onContextMenu = (event: MouseEvent) => event.preventDefault();
     window.addEventListener("contextmenu", onContextMenu);
     return () => window.removeEventListener("contextmenu", onContextMenu);
+  }, []);
+
+  // Start the plugins the user enabled, once, when the app boots.
+  useEffect(() => {
+    if (!isTauri()) return;
+    void api
+      .listPlugins()
+      .then((list) => {
+        list
+          .filter((plugin) => plugin.enabled)
+          .forEach((plugin) => void loadPlugin(plugin.id).catch(() => {}));
+      })
+      .catch(() => {});
   }, []);
 
   // Keep the file explorer and open-note conflict state in sync with external edits.
