@@ -1,52 +1,61 @@
+import { save } from "@tauri-apps/plugin-dialog";
+import { openPath } from "@tauri-apps/plugin-opener";
 import { api } from "./tauri";
 import { stem } from "./files";
+import { isTauri } from "./theme";
 
-const PRINT_CSS = `
-  :root { color-scheme: light; }
-  body { margin: 0; padding: 40px; font: 15px/1.65 Georgia, "Times New Roman", serif; color: #111; background: #fff; }
-  h1, h2, h3, h4, h5, h6 { font-family: -apple-system, "Segoe UI", sans-serif; line-height: 1.3; margin: 1.4em 0 .5em; }
-  h1 { font-size: 1.9em; } h2 { font-size: 1.5em; } h3 { font-size: 1.2em; }
-  p, ul, ol { margin: .7em 0; }
-  li { margin: .25em 0; }
-  blockquote { margin: 1em 0; padding: .4em 1em; border-left: 3px solid #8b5cf6; background: #f6f4ff; }
-  code { font-family: "Cascadia Mono", Consolas, monospace; font-size: .92em; background: #f3f3f5; padding: .1em .35em; border-radius: 3px; }
-  pre { padding: 12px; background: #f6f6f8; border: 1px solid #e4e4ea; border-radius: 6px; overflow: hidden; white-space: pre-wrap; }
-  pre code { background: none; padding: 0; }
-  table { border-collapse: collapse; margin: 1em 0; width: 100%; }
-  th, td { border: 1px solid #d8d8de; padding: 6px 10px; text-align: left; font-size: .94em; }
-  img { max-width: 100%; }
-  hr { border: none; border-top: 1px solid #ddd; margin: 1.6em 0; }
-  a { color: #6d28d9; text-decoration: none; }
-  a::after { content: " (" attr(href) ")"; font-size: .8em; color: #666; }
-  a[href^="#"]::after { content: ""; }
-  @media print { body { padding: 12mm; } }
-`;
+export type ExportFormat = "markdown" | "html" | "pdf";
+
+const FORMATS: Record<ExportFormat, { extension: string; filter: { name: string; extensions: string[] } }> = {
+  markdown: { extension: "md", filter: { name: "Markdown", extensions: ["md"] } },
+  html: { extension: "html", filter: { name: "HTML", extensions: ["html"] } },
+  pdf: { extension: "html", filter: { name: "HTML", extensions: ["html"] } },
+};
 
 /**
- * Export a note as PDF through the OS print pipeline: render the sanitized
- * HTML in a dedicated window and open the WebView print dialog, where
- * "Save as PDF" (and printers) are available. Fully offline.
+ * Export a note through a real OS save dialog and a real file write.
+ *
+ * Returns the written path, or null when the user cancels the dialog.
+ * "pdf" renders standalone HTML into the temp folder and hands it to the
+ * system browser, whose print dialog can save a PDF fully offline.
  */
-export async function exportNotePdf(rel: string): Promise<void> {
-  const content = await api.readFile(rel);
-  const body = await api.renderHtml(content);
-  const win = window.open("", "_blank", "width=960,height=1200");
-  if (!win) {
-    throw new Error("The print window was blocked by the WebView");
+export async function exportNote(rel: string, format: ExportFormat): Promise<string | null> {
+  if (!isTauri()) {
+    throw new Error("Exporting is available in the desktop app");
   }
-  const title = stem(rel);
-  win.document.open();
-  win.document.write(
-    `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>` +
-      `<style>${PRINT_CSS}</style></head><body>${body}</body></html>`
-  );
-  win.document.close();
-  await new Promise<void>((resolve) => {
-    if (win.document.readyState === "complete") resolve();
-    else win.addEventListener("load", () => resolve(), { once: true });
-    // Fallback: never hang the caller if the load event is missed.
-    window.setTimeout(resolve, 1200);
+  if (format === "pdf") {
+    const path = await api.exportPrintHtml(rel);
+    await openPath(path);
+    return path;
+  }
+  const meta = FORMATS[format];
+  const dest = await save({
+    defaultPath: `${stem(rel)}.${meta.extension}`,
+    filters: [meta.filter],
   });
-  win.focus();
-  win.print();
+  if (!dest) return null;
+  await api.exportNote(rel, dest, format);
+  return dest;
+}
+
+/** Save arbitrary text (settings, diagnostics) where the user chooses. */
+export async function saveTextFile(
+  defaultName: string,
+  content: string,
+  filter: { name: string; extensions: string[] } = { name: "JSON", extensions: ["json"] }
+): Promise<string | null> {
+  if (!isTauri()) {
+    const blob = new Blob([content], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = defaultName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    return defaultName;
+  }
+  const dest = await save({ defaultPath: defaultName, filters: [filter] });
+  if (!dest) return null;
+  await api.saveTextFile(dest, content);
+  return dest;
 }

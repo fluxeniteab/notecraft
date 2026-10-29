@@ -24,16 +24,41 @@ import type { Settings, SyncFileStatus, Theme } from "../lib/types";
 import { Switch, Kbd, Modal } from "./ui";
 import { Puzzle, RefreshCw } from "lucide-react";
 
-const accents = ["#8b5cf6", "#6366f1", "#3b82f6", "#06b6d4", "#10b981", "#f59e0b", "#f43f5e"];
+const accents = ["#4f86f7", "#8b5cf6", "#6366f1", "#06b6d4", "#10b981", "#f59e0b", "#f43f5e"];
 
 type Section = "appearance" | "editor" | "files" | "plugins" | "about";
 
-const sections: Array<{ id: Section; label: string; icon: React.ReactNode }> = [
-  { id: "appearance", label: "Appearance", icon: <Palette size={14} /> },
-  { id: "editor", label: "Editor", icon: <Type size={14} /> },
-  { id: "files", label: "Files & history", icon: <FileCog size={14} /> },
-  { id: "plugins", label: "Plugins", icon: <Puzzle size={14} /> },
-  { id: "about", label: "About", icon: <Info size={14} /> },
+const sections: Array<{ id: Section; label: string; description: string; icon: React.ReactNode }> = [
+  {
+    id: "appearance",
+    label: "Appearance",
+    description: "Theme, accent and reading comfort.",
+    icon: <Palette size={14} />,
+  },
+  {
+    id: "editor",
+    label: "Editor",
+    description: "Typography, autosave and writing goals.",
+    icon: <Type size={14} />,
+  },
+  {
+    id: "files",
+    label: "Files & history",
+    description: "Explorer, daily notes, sync folder, snapshots.",
+    icon: <FileCog size={14} />,
+  },
+  {
+    id: "plugins",
+    label: "Plugins",
+    description: "Installed extensions and the marketplace catalog.",
+    icon: <Puzzle size={14} />,
+  },
+  {
+    id: "about",
+    label: "About",
+    description: "Version, shortcuts and the settings file.",
+    icon: <Info size={14} />,
+  },
 ];
 
 const clamp = (value: number, min: number, max: number) =>
@@ -253,15 +278,18 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
     toast.success("Settings saved");
   };
 
-  const exportSettings = () => {
+  const exportSettings = async () => {
     if (!draft) return;
-    const blob = new Blob([JSON.stringify(draft, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "notecraft-settings.json";
-    anchor.click();
-    URL.revokeObjectURL(url);
+    try {
+      const { saveTextFile } = await import("../lib/export");
+      const path = await saveTextFile(
+        "notecraft-settings.json",
+        JSON.stringify(draft, null, 2)
+      );
+      if (path) toast.success("Settings exported", { description: path });
+    } catch (error) {
+      toast.error("Could not export settings", { description: String(error) });
+    }
   };
 
   const importSettings = async (file: File) => {
@@ -300,15 +328,15 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
     () => [
       {
         id: "dark" as const,
-        name: "Midnight",
-        description: "Deep black, soft violet",
-        swatch: ["#09090b", "#141419", "#8b5cf6"],
+        name: "Graphite",
+        description: "Neutral black, quiet blue",
+        swatch: ["#0b0b0d", "#1a1a1d", "#4f86f7"],
       },
       {
         id: "light" as const,
-        name: "Paper",
-        description: "Clean white, warm ink",
-        swatch: ["#f7f7f8", "#ffffff", "#7c3aed"],
+        name: "Warm paper",
+        description: "Warm white, stone ink",
+        swatch: ["#faf7f1", "#fffdf8", "#1f6feb"],
       },
     ],
     []
@@ -366,6 +394,10 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
             </nav>
 
             <div className="nc-settings-content nc-scroll">
+              <div className="nc-settings-section-head">
+                <h3>{sections.find((entry) => entry.id === section)?.label}</h3>
+                <p>{sections.find((entry) => entry.id === section)?.description}</p>
+              </div>
               {section === "appearance" && (
                 <>
                   <div className="nc-setting-group">
@@ -423,7 +455,7 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
                         Custom
                         <input
                           type="color"
-                          value={/^#[0-9a-f]{6}$/i.test(draft.accent) ? draft.accent : "#8b5cf6"}
+                          value={/^#[0-9a-f]{6}$/i.test(draft.accent) ? draft.accent : "#4f86f7"}
                           onChange={(event) => update("accent", event.target.value)}
                           className="h-7 w-9 cursor-pointer rounded border border-border bg-transparent p-0.5"
                           aria-label="Custom accent color"
@@ -985,9 +1017,9 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
                       ordinary folder — no account, no cloud, no lock-in.
                     </p>
                     <div className="mt-3 flex flex-wrap gap-1.5">
-                      <span className="nc-chip">Version 0.1.0</span>
+                      <span className="nc-chip">Version 0.2.1</span>
                       <span className="nc-chip">Tauri 2</span>
-                      <span className="nc-chip">MIT licensed</span>
+                      <span className="nc-chip">GPL-3.0 licensed</span>
                     </div>
                   </div>
 
@@ -1017,7 +1049,7 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
                   <div className="nc-setting-group">
                     <div className="nc-setting-group-title">Settings file</div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <button type="button" className="nc-btn nc-btn-outline" onClick={exportSettings}>
+                      <button type="button" className="nc-btn nc-btn-outline" onClick={() => void exportSettings()}>
                         <Download size={13} /> Export settings
                       </button>
                       <button

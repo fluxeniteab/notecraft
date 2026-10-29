@@ -2,8 +2,8 @@
 
 A desktop notes app that keeps everything on your own machine, encrypted with your password.
 
-![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-8b5cf6)
-![License](https://img.shields.io/badge/license-GPL--3.0-60a5fa)
+![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-4f86f7)
+![License](https://img.shields.io/badge/license-GPL--3.0-77777f)
 
 ## What it is
 
@@ -13,6 +13,10 @@ NoteCraft is a Markdown knowledge base for people who want their notes to stay p
 - **Encrypted at rest.** Notes are sealed with ChaCha20-Poly1305 using a key derived from your
   password with Argon2id. The password is never written to disk.
 - **Fast editing.** CodeMirror 6 with source, live-preview, reading and split modes.
+- **One Rust document engine.** Markdown, MDX and JSON are rendered by NoteCraft's own Rust
+  engine — no third-party Markdown parser. JSON becomes a readable outline; MDX components are
+  surfaced instead of mangled.
+- **Real exports.** Markdown, standalone HTML, and print / save-as-PDF from the editor menu.
 - **Real links.** `[[wiki links]]`, backlinks, tags, unlinked mentions and a graph view.
 - **Workflow built in.** Tasks with due dates, daily notes, quick capture, templates,
   saved searches, snapshots with diff and restore, canvas boards and automations.

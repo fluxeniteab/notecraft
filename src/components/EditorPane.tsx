@@ -227,7 +227,7 @@ export default function EditorPane({
       previewTimerRef.current = null;
       if (modeRef.current !== "reading" && modeRef.current !== "split") return;
       api
-        .renderHtml(text)
+        .renderDocument(text, currentPathRef.current)
         .then(setHtml)
         .catch((err) => {
           setHtml("");
@@ -256,7 +256,7 @@ export default function EditorPane({
         chars: diskText.length,
       });
       if (modeRef.current === "reading" || modeRef.current === "split") {
-        void api.renderHtml(diskText).then(setHtml).catch(() => {});
+        void api.renderDocument(diskText, currentPathRef.current).then(setHtml).catch(() => {});
       }
       if (viewRef.current) {
         viewRef.current.dispatch({
@@ -312,7 +312,10 @@ export default function EditorPane({
         });
         useAppStore.getState().setCursor(tab.id, { line: 1, col: 1 });
         if (modeRef.current === "reading" || modeRef.current === "split") {
-          void api.renderHtml(text).then((next) => !cancelled && setHtml(next)).catch(() => {});
+          void api
+            .renderDocument(text, currentPathRef.current)
+            .then((next) => !cancelled && setHtml(next))
+            .catch(() => {});
         }
         const view = new EditorView({
           parent: hostRef.current!,
@@ -432,7 +435,7 @@ export default function EditorPane({
     if (tab.mode === "reading" || tab.mode === "split") {
       const text = view.state.doc.toString();
       if (html) renderPreview(text);
-      else void api.renderHtml(text).then(setHtml).catch(() => {});
+      else void api.renderDocument(text, currentPathRef.current).then(setHtml).catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab.mode]);
@@ -709,7 +712,8 @@ export default function EditorPane({
                 setExternalContent(null);
                 setShowCompare(false);
                 viewRef.current?.dispatch({ changes: { from: 0, to: viewRef.current.state.doc.length, insert: diskVersion } });
-                if (modeRef.current === "reading" || modeRef.current === "split") void api.renderHtml(diskVersion).then(setHtml).catch(() => {});
+                if (modeRef.current === "reading" || modeRef.current === "split")
+                  void api.renderDocument(diskVersion, currentPathRef.current).then(setHtml).catch(() => {});
               }}>Reload disk version</button>
               <button type="button" className="nc-btn nc-btn-primary" onClick={() => { diskContentRef.current = externalContent; externalChangeRef.current = true; setKeepEditorRequested(true); void flush(); }}>Keep editor version</button>
             </div>

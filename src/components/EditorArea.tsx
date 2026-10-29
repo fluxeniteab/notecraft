@@ -9,10 +9,12 @@ import {
   Code2,
   Columns2,
   Copy,
+  FileDown,
   FilePlus2,
   FileText,
   FolderOpen,
   FolderPlus,
+  Printer,
   Keyboard,
   Loader2,
   Maximize2,
@@ -27,7 +29,7 @@ import { baseName, dirName, formatRelativeTime, stem } from "../lib/files";
 import { flushTab } from "../lib/saveRegistry";
 import { pickVault } from "../lib/vaultActions";
 import { createNote as createNoteAction } from "../lib/noteActions";
-import { exportNotePdf } from "../lib/export";
+import { exportNote, type ExportFormat } from "../lib/export";
 import EditorPane from "./EditorPane";
 import { ContextMenu, IconButton, Kbd, Segmented, type MenuEntry } from "./ui";
 
@@ -111,6 +113,24 @@ export default function EditorArea({
     }
   };
 
+  const runExport = async (format: ExportFormat) => {
+    if (!active) return;
+    try {
+      await flushTab(active.id);
+      const path = await exportNote(active.path, format);
+      if (!path) return;
+      if (format === "pdf") {
+        toast.success("Opened for printing", {
+          description: "Choose \"Save as PDF\" in the browser's print dialog.",
+        });
+      } else {
+        toast.success("Note exported", { description: path });
+      }
+    } catch (error) {
+      toast.error("Export failed", { description: String(error) });
+    }
+  };
+
   const copy = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -139,14 +159,21 @@ export default function EditorArea({
               .then((html) => copy(html, "HTML copied to clipboard"))
               .catch((error) => toast.error("Could not render the note", { description: String(error) })),
         },
+        { separator: true },
         {
-          label: "Export PDF…",
+          label: "Export Markdown…",
+          icon: <FileDown size={13} />,
+          onSelect: () => void runExport("markdown"),
+        },
+        {
+          label: "Export HTML…",
           icon: <FileText size={13} />,
-          onSelect: () => {
-            void exportNotePdf(active.path)
-              .then(() => toast.success("Print dialog opened", { description: "Choose \"Save as PDF\" to keep a copy." }))
-              .catch((error) => toast.error("Could not open the print view", { description: String(error) }));
-          },
+          onSelect: () => void runExport("html"),
+        },
+        {
+          label: "Print / Save as PDF…",
+          icon: <Printer size={13} />,
+          onSelect: () => void runExport("pdf"),
         },
         {
           label: focusMode ? "Leave focus mode" : "Enter focus mode",

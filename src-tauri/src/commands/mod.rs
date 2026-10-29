@@ -446,7 +446,8 @@ pub fn move_path(from: String, to_dir: String, state: State<AppState>) -> AppRes
 }
 
 fn is_markdown(rel: &str) -> bool {
-    rel.ends_with(".md") || rel.ends_with(".markdown")
+    let lower = rel.to_ascii_lowercase();
+    lower.ends_with(".md") || lower.ends_with(".markdown") || lower.ends_with(".mdx")
 }
 
 // ---------- markdown ----------
@@ -458,6 +459,12 @@ pub fn parse_note(content: String) -> AppResult<crate::markdown::ParsedNote> {
 #[tauri::command]
 pub fn render_html(content: String) -> AppResult<String> {
     Ok(crate::markdown::render_html(&content))
+}
+
+/// Render any engine document (`.md`, `.mdx`, `.json`) for the preview.
+#[tauri::command]
+pub fn render_document(content: String, path: String) -> AppResult<String> {
+    Ok(crate::markdown::render_document(&content, &path))
 }
 
 // ---------- search ----------
@@ -1334,8 +1341,72 @@ pub fn import_vault(
 pub fn export_html(rel: String, state: State<AppState>) -> AppResult<String> {
     with_root(&state, |root| {
         let content = vault::read_file(root, &rel)?;
-        Ok(crate::markdown::render_html(&content))
+        Ok(crate::markdown::render_document(&content, &rel))
     })
+}
+
+/// Write an exported note beside the vault: Markdown source or a standalone
+/// HTML document. The destination comes from the OS save dialog, so it may be
+/// anywhere the user can write.
+#[tauri::command]
+pub fn export_note(
+    rel: String,
+    dest: String,
+    format: String,
+    state: State<AppState>,
+) -> AppResult<String> {
+    let content = with_root(&state, |root| vault::read_file(root, &rel))?;
+    let output = match format.as_str() {
+        "markdown" | "md" => content,
+        "html" => crate::import_export::export_document_html(&content, &rel),
+        other => {
+            return Err(crate::error::AppError::Invalid(format!(
+                "unknown export format: {other}"
+            )))
+        }
+    };
+    crate::import_export::write_file(&dest, &output)?;
+    Ok(dest)
+}
+
+/// Render a note to a standalone HTML file in the temp folder and return its
+/// path, so "Export PDF" can hand it to the system browser's print dialog.
+#[tauri::command]
+pub fn export_print_html(rel: String, state: State<AppState>) -> AppResult<String> {
+    let content = with_root(&state, |root| vault::read_file(root, &rel))?;
+    let html = crate::import_export::export_document_html(&content, &rel);
+    let name = rel
+        .rsplit('/')
+        .next()
+        .unwrap_or("note")
+        .trim_end_matches(".md")
+        .trim_end_matches(".markdown")
+        .trim_end_matches(".mdx")
+        .trim_end_matches(".json")
+        .to_string();
+    let mut dir = std::env::temp_dir();
+    dir.push("notecraft-export");
+    std::fs::create_dir_all(&dir).map_err(crate::error::AppError::Io)?;
+    let safe: String = name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    dir.push(format!("{safe}.html"));
+    let dest = dir.to_string_lossy().to_string();
+    crate::import_export::write_file(&dest, &html)?;
+    Ok(dest)
+}
+
+/// Write text the user picked a destination for (settings export, diagnostics).
+#[tauri::command]
+pub fn save_text_file(dest: String, content: String) -> AppResult<()> {
+    crate::import_export::write_file(&dest, &content)
 }
 
 #[tauri::command]

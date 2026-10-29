@@ -25,11 +25,16 @@ export function dirName(path: string): string {
 
 export function stem(path: string): string {
   const name = baseName(path);
-  return name.replace(/\.(md|markdown)$/i, "");
+  return name.replace(/\.(md|markdown|mdx|json)$/i, "");
 }
 
 export function isMarkdown(path: string): boolean {
   return /\.(md|markdown)$/i.test(path);
+}
+
+/** Files the document engine can render as a note (Markdown, MDX, JSON). */
+export function isDocument(path: string): boolean {
+  return /\.(md|markdown|mdx|json)$/i.test(path);
 }
 
 export function joinRel(dir: string, name: string): string {

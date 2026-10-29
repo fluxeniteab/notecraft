@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.2.1
+
+### Added
+- **NoteCraft document engine** (`src-tauri/src/engine.rs`): our own Rust renderer with no
+  third-party Markdown parser. It powers the preview for `.md`, `.mdx` and `.json` and handles
+  nested lists, task lists, tables, callouts, footnotes, math passthrough, wiki links, and MDX
+  component blocks and `{expressions}`.
+- JSON notes open as a readable outline instead of a wall of braces; invalid JSON is reported with
+  the offending position and the raw source.
+- Editor menu now has real exports: **Export Markdown…**, **Export HTML…** (standalone, styled
+  document) and **Print / Save as PDF…** (renders to the temp folder and opens the system browser's
+  print dialog).
+- Settings gained a section header with a short description of each section.
+
+### Changed
+- Dark theme is now grayscale (neutral surfaces, no violet/blue background gradients) with a quiet
+  blue accent; light theme is a warm-white paper palette with stone ink. Both follow code-editor
+  conventions: flat rows, 1px borders, minimal elevation.
+- Settings layout widened and re-spaced, with an independently scrolling content column.
+- Lock screen redesigned as a two-panel sign-in: security summary on the left, form on the right,
+  with a password reveal toggle and clearer create/unlock states.
+- `.mdx` files are indexed, searched and opened like Markdown notes.
+
+### Fixed
+- Export buttons did nothing in the desktop webview: the old code used a blob `<a download>` and
+  `window.open`, both of which the Tauri webview ignores. Exports now go through the OS save dialog
+  and a real Rust file write.
+- Exporting settings had the same silent failure and now writes the chosen file.
+- `pulldown-cmark` removed from the dependency graph (lockfile updated).
+
 ## 0.2.0
 
 ### Added

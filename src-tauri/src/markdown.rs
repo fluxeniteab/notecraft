@@ -1,5 +1,5 @@
+use crate::engine::{self, Dialect, Kind};
 use crate::error::AppResult;
-use pulldown_cmark::{html, Options, Parser};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -258,93 +258,41 @@ pub fn parse(content: &str) -> ParsedNote {
     }
 }
 
-fn escape_attr(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
+/// Defence in depth for preview HTML. The engine escapes every character of
+/// user text itself, so this only has to keep the markup we deliberately emit.
+fn sanitize(html: &str) -> String {
+    let mut builder = ammonia::Builder::default();
+    builder.add_tags([
+        "input", "section", "dl", "dt", "dd", "mark", "del", "sup", "sub", "div", "span",
+    ]);
+    builder.add_generic_attributes(["class", "id"]);
+    builder.add_tag_attributes("input", ["type", "checked", "disabled"]);
+    builder.add_tag_attributes("th", ["align"]);
+    builder.add_tag_attributes("td", ["align"]);
+    builder.add_tag_attributes("a", ["class", "rel", "href", "title"]);
+    builder.add_tag_attributes("img", ["src", "alt", "title", "loading"]);
+    builder.add_tag_attributes("code", ["class"]);
+    builder.clean(html)
 }
 
-/// Turn `[[Target]]`, `[[Target|Alias]]` and `[[Target#Heading]]` into real
-/// anchors so the preview can navigate the vault. Fenced code blocks are left
-/// untouched.
-fn expand_wikilinks(body: &str) -> String {
-    let re = Regex::new(r"\[\[([^\]|#]*)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]").unwrap();
-    let mut out = String::with_capacity(body.len());
-    let mut in_fence = false;
-    for (i, line) in body.lines().enumerate() {
-        if i > 0 {
-            out.push('\n');
-        }
-        let trimmed = line.trim_start();
-        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
-            in_fence = !in_fence;
-            out.push_str(line);
-            continue;
-        }
-        if in_fence {
-            out.push_str(line);
-            continue;
-        }
-        let replaced = re.replace_all(line, |caps: &regex::Captures| {
-            let target = caps.get(1).map(|m| m.as_str().trim()).unwrap_or("");
-            let heading = caps.get(2).map(|m| m.as_str().trim());
-            let label = caps
-                .get(3)
-                .map(|m| m.as_str().trim())
-                .filter(|s| !s.is_empty())
-                .unwrap_or_else(|| {
-                    if target.is_empty() {
-                        heading.unwrap_or("")
-                    } else {
-                        target
-                    }
-                });
-            // Same-page links such as [[#Heading]] link to the heading itself.
-            let mut href = if target.is_empty() {
-                String::new()
-            } else if target.to_lowercase().ends_with(".md")
-                || target.to_lowercase().ends_with(".markdown")
-            {
-                target.to_string()
-            } else {
-                format!("{}.md", target)
-            };
-            if let Some(h) = heading {
-                href.push('#');
-                href.push_str(&h.replace(' ', "%20"));
-            }
-            if target.is_empty() && heading.is_none() {
-                return caps
-                    .get(0)
-                    .map(|m| m.as_str().to_string())
-                    .unwrap_or_default();
-            }
-            format!(
-                "<a class=\"nc-wikilink\" href=\"{}\">{}</a>",
-                escape_attr(&href),
-                escape_attr(label)
-            )
-        });
-        out.push_str(&replaced);
-    }
-    out
-}
-
+/// Render Markdown through the NoteCraft engine.
 pub fn render_html(content: &str) -> String {
-    let (_fm, body) = parse_frontmatter(content);
-    let body = expand_wikilinks(&body);
-    let mut opts = Options::empty();
-    opts.insert(Options::ENABLE_TABLES);
-    opts.insert(Options::ENABLE_FOOTNOTES);
-    opts.insert(Options::ENABLE_STRIKETHROUGH);
-    opts.insert(Options::ENABLE_TASKLISTS);
-    opts.insert(Options::ENABLE_HEADING_ATTRIBUTES);
-    let parser = Parser::new_ext(&body, opts);
-    let mut html_out = String::new();
-    html::push_html(&mut html_out, parser);
-    // sanitize
-    ammonia::clean(&html_out)
+    sanitize(&engine::render(content, Dialect::Markdown))
+}
+
+/// Render any supported note through the NoteCraft engine, choosing the
+/// dialect from the file extension (`.md`, `.mdx`, `.json`).
+pub fn render_document(content: &str, path: &str) -> String {
+    sanitize(&engine::render_document(content, Kind::from_path(path)))
+}
+
+/// True when the engine can render this file as a note.
+pub fn is_engine_document(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    lower.ends_with(".md")
+        || lower.ends_with(".markdown")
+        || lower.ends_with(".mdx")
+        || lower.ends_with(".json")
 }
 
 pub fn update_frontmatter(content: &str, key: &str, value: Value) -> AppResult<String> {
@@ -399,34 +347,25 @@ mod tests {
     }
 
     #[test]
-    fn wikilinks_render_as_anchors() {
-        let html = expand_wikilinks("See [[Other]] and [[Folder/Deep Note|alias]].");
-        assert!(html.contains("href=\"Other.md\""));
-        assert!(html.contains("href=\"Folder/Deep Note.md\""));
-        assert!(html.contains(">alias</a>"));
+    fn render_keeps_classes_used_by_the_preview() {
+        let html = render_html("See [[Other]]\n\n- [ ] task");
+        assert!(html.contains("nc-wikilink"), "{html}");
+        assert!(html.contains("nc-task"), "{html}");
     }
 
     #[test]
-    fn wikilinks_keep_markdown_extension() {
-        let html = expand_wikilinks("[[Other.md]]");
-        assert!(html.contains("href=\"Other.md\""));
-        assert!(!html.contains("Other.md.md"));
+    fn render_document_dispatches_on_extension() {
+        let json = render_document(r#"{"title":"Hello"}"#, "notes/data.json");
+        assert!(json.contains("Hello"), "{json}");
+        let mdx = render_document("# Hi\n\n<Chart />", "notes/page.mdx");
+        assert!(mdx.contains("nc-mdx-block"), "{mdx}");
     }
 
     #[test]
-    fn wikilink_headings_and_same_page_links() {
-        let html = expand_wikilinks("[[Note#My Heading]] then [[#Local Heading]]");
-        assert!(html.contains("href=\"Note.md#My%20Heading\""));
-        assert!(html.contains("href=\"#Local%20Heading\""));
-        assert!(html.contains(">Local Heading</a>"));
-    }
-
-    #[test]
-    fn wikilinks_inside_fences_are_left_alone() {
-        let body = "```\n[[Not a link]]\n```\n[[Real]]";
-        let html = expand_wikilinks(body);
-        assert!(html.contains("[[Not a link]]"));
-        assert!(html.contains("href=\"Real.md\""));
+    fn engine_extensions_are_recognised() {
+        assert!(is_engine_document("a.mdx"));
+        assert!(is_engine_document("a.json"));
+        assert!(!is_engine_document("a.png"));
     }
 }
 

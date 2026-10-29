@@ -25,7 +25,8 @@ pub fn mark_stale() {
 }
 
 fn is_markdown(rel: &str) -> bool {
-    rel.ends_with(".md") || rel.ends_with(".markdown")
+    let lower = rel.to_ascii_lowercase();
+    lower.ends_with(".md") || lower.ends_with(".markdown") || lower.ends_with(".mdx")
 }
 
 fn matches_folder(path: &str, folder: &str) -> bool {

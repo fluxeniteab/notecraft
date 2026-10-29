@@ -35,6 +35,8 @@ export const api = {
   // markdown
   parseNote: (content: string) => invoke<ParsedNote>("parse_note", { content }),
   renderHtml: (content: string) => invoke<string>("render_html", { content }),
+  renderDocument: (content: string, path: string) =>
+    invoke<string>("render_document", { content, path }),
   // search
   search: (query: string, filters?: Record<string, unknown>) => invoke<SearchResult[]>("search", { query, filters: filters ?? {} }),
   saveSearch: (id: string, name: string, query: string, filters: Record<string, unknown>) =>
@@ -118,6 +120,11 @@ export const api = {
   // import/export
   importVault: (src: string, dest: string) => invoke<{ imported: number; brokenLinks: string[] }>("import_vault", { src, dest }),
   exportHtml: (rel: string) => invoke<string>("export_html", { rel }),
+  exportNote: (rel: string, dest: string, format: string) =>
+    invoke<string>("export_note", { rel, dest, format }),
+  exportPrintHtml: (rel: string) => invoke<string>("export_print_html", { rel }),
+  saveTextFile: (dest: string, content: string) =>
+    invoke<void>("save_text_file", { dest, content }),
   backupVault: (dest: string) => invoke<void>("backup_vault", { dest }),
   restoreBackup: (src: string, dest: string) => invoke<void>("restore_backup", { src, dest }),
   // fs watch events

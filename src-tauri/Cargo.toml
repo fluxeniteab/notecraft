@@ -1,6 +1,6 @@
 [package]
 name = "notecraft"
-version = "0.2.0"
+version = "0.2.1"
 description = "NoteCraft desktop knowledge base"
 authors = ["Fluxenite"]
 edition = "2021"
@@ -33,7 +33,6 @@ notify = "6"
 zip = "2"
 rusqlite = { version = "0.31", features = ["bundled"] }
 tantivy = "0.22"
-pulldown-cmark = "0.12"
 ammonia = "4"
 sha2 = "0.10"
 dirs = "5"

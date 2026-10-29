@@ -24,6 +24,7 @@ import {
   dirName,
   ensureMarkdown,
   highlightParts,
+  isDocument,
   isMarkdown,
   joinRel,
   stem,
@@ -268,11 +269,11 @@ export default function Sidebar() {
     const q = query.trim().toLowerCase();
     if (!q) return [];
     return allFiles
-      .filter((entry) => isMarkdown(entry.path) && (entry.path.toLowerCase().includes(q) || entry.name.toLowerCase().includes(q)))
+      .filter((entry) => isDocument(entry.path) && (entry.path.toLowerCase().includes(q) || entry.name.toLowerCase().includes(q)))
       .slice(0, 80);
   }, [allFiles, query]);
 
-  const noteCount = allFiles.filter((f) => isMarkdown(f.path)).length;
+  const noteCount = allFiles.filter((f) => isDocument(f.path)).length;
 
   const renderNode = (entry: FileEntry, depth: number): React.ReactNode => {
     const isDir = entry.is_dir;
@@ -340,7 +341,7 @@ export default function Sidebar() {
           ) : (
             <FileText
               size={13}
-              className={cn("shrink-0", isActive ? "text-accent" : isMarkdown(entry.path) ? "text-fg-muted" : "text-fg-faint")}
+              className={cn("shrink-0", isActive ? "text-accent" : isDocument(entry.path) ? "text-fg-muted" : "text-fg-faint")}
             />
           )}
           <span className="nc-tree-label">{entry.name}</span>

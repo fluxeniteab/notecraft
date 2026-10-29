@@ -1,5 +1,6 @@
 pub mod automation;
 pub mod commands;
+pub mod engine;
 pub mod error;
 pub mod graph;
 pub mod history;
@@ -54,6 +55,10 @@ pub fn run() {
             commands::move_path,
             commands::parse_note,
             commands::render_html,
+            commands::render_document,
+            commands::export_note,
+            commands::export_print_html,
+            commands::save_text_file,
             commands::search,
             commands::save_search,
             commands::list_saved_searches,

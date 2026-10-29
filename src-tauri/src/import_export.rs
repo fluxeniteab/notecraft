@@ -121,3 +121,81 @@ pub fn restore_backup(src: &str, dest: &str) -> AppResult<()> {
     }
     Ok(())
 }
+
+/// Write a file the user explicitly chose a destination for.
+pub fn write_file(dest: &str, content: &str) -> AppResult<()> {
+    let path = PathBuf::from(dest);
+    if path.as_os_str().is_empty() {
+        return Err(AppError::Invalid("no destination was chosen".into()));
+    }
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent).map_err(AppError::Io)?;
+        }
+    }
+    std::fs::write(&path, content).map_err(AppError::Io)
+}
+
+const EXPORT_CSS: &str = r##"
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body {
+  margin: 0 auto; padding: 56px 40px 72px; max-width: 780px;
+  font: 16px/1.7 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: #1c1917; background: #fffdf9;
+}
+h1, h2, h3, h4, h5, h6 { line-height: 1.25; margin: 1.6em 0 .5em; letter-spacing: -.01em; }
+h1 { font-size: 2em; } h2 { font-size: 1.5em; } h3 { font-size: 1.2em; }
+p, ul, ol, table { margin: .75em 0; }
+ul, ol { padding-left: 1.4em; }
+li { margin: .2em 0; }
+li.nc-task { list-style: none; margin-left: -1.2em; }
+li.nc-task input { margin-right: .5em; }
+li.nc-task-done { color: #78716c; }
+blockquote { margin: 1em 0; padding: .35em 1.1em; border-left: 3px solid #d6d3d1; color: #44403c; }
+.nc-callout { margin: 1em 0; padding: .8em 1.1em; border: 1px solid #e7e5e4; border-radius: 10px; background: #faf9f7; }
+.nc-callout-title { font-size: .72em; letter-spacing: .09em; text-transform: uppercase; font-weight: 700; color: #78716c; }
+code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: .9em; background: #f3efe9; padding: .12em .35em; border-radius: 4px; }
+pre { padding: 14px 16px; background: #f6f2ec; border: 1px solid #e7e0d6; border-radius: 10px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #e2ddd6; padding: 7px 11px; text-align: left; font-size: .95em; }
+th { background: #faf7f2; font-weight: 600; }
+img { max-width: 100%; border-radius: 8px; }
+hr { border: none; border-top: 1px solid #e2ddd6; margin: 1.8em 0; }
+a { color: #6d28d9; }
+a::after { content: " (" attr(href) ")"; font-size: .78em; color: #78716c; }
+a[href^="#"]::after, a.nc-wikilink::after { content: ""; }
+mark { background: #fde68a; }
+.nc-frontmatter { margin: 0 0 1.6em; padding: .8em 1em; border: 1px solid #e7e5e4; border-radius: 10px; background: #faf9f7; font-size: .88em; }
+.nc-frontmatter-title { font-size: .7em; text-transform: uppercase; letter-spacing: .09em; color: #78716c; margin-bottom: .35em; }
+.nc-frontmatter dl { display: grid; grid-template-columns: minmax(90px, auto) 1fr; gap: .25em 1em; margin: 0; }
+.nc-frontmatter dt { font-weight: 600; } .nc-frontmatter dd { margin: 0; }
+.nc-mdx-block { margin: 1em 0; border: 1px solid #e7e5e4; border-radius: 10px; overflow: hidden; }
+.nc-mdx-label { padding: .35em .8em; background: #f6f2ec; font-family: ui-monospace, Consolas, monospace; font-size: .78em; color: #57534e; }
+.nc-mdx-source { margin: 0; border: none; border-radius: 0; }
+.nc-footnotes { margin-top: 2.4em; border-top: 1px solid #e2ddd6; padding-top: .8em; font-size: .9em; color: #57534e; }
+@media print { body { padding: 12mm; max-width: none; background: #fff; } a::after { content: ""; } }
+"##;
+
+/// A standalone, offline HTML document for one note. Used by the editor's
+/// export menu and by the print-to-PDF path.
+pub fn export_document_html(content: &str, rel: &str) -> String {
+    let body = crate::markdown::render_document(content, rel);
+    let name = rel.rsplit('/').next().unwrap_or(rel);
+    let title = name
+        .trim_end_matches(".md")
+        .trim_end_matches(".markdown")
+        .trim_end_matches(".mdx")
+        .trim_end_matches(".json");
+    let title_escaped = title
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;");
+    format!(
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">\
+         <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
+         <title>{title_escaped}</title><style>{EXPORT_CSS}</style></head>\
+         <body>{body}</body></html>"
+    )
+}

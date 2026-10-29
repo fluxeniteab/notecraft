@@ -52,7 +52,9 @@ export function applyTheme(theme: Theme, options: ThemeOptions = {}) {
     root.style.setProperty("--nc-accent", options.accent);
     root.style.setProperty("--nc-accent-fg", rgb ? readableOn(rgb) : "#ffffff");
     if (rgb) {
-      root.style.setProperty("--nc-accent-rgb", `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`);
+      // CSS consumes this as `rgb(var(--nc-accent-rgb) / 0.2)`, which needs
+      // space-separated channels — commas would make the declaration invalid.
+      root.style.setProperty("--nc-accent-rgb", `${rgb[0]} ${rgb[1]} ${rgb[2]}`);
     }
   }
   if (options.editorFontSize) {

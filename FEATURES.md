@@ -2,6 +2,15 @@
 
 Legend: [x] implemented & tested, [~] partial, [ ] planned
 
+## Document engine (0.2.1)
+- [x] Own Rust renderer for Markdown (no third-party Markdown parser)
+- [x] MDX: JSX component blocks, `{expressions}` and ESM lines surfaced, rest rendered
+- [x] JSON converted to a human-readable outline (invalid JSON reported with position)
+- [x] Nested lists, task lists, tables, callouts, footnotes, frontmatter card, wiki links
+- [x] Preview HTML escapes all user text and is sanitised again before insertion
+- [x] `render_document` command picks the dialect from the file extension
+- [x] `.mdx` notes indexed and searched like Markdown
+
 ## Local accounts, encryption and distribution (0.2.0)
 - [x] Local profiles: one encrypted vault per username in the app data folder
 - [x] Password unlock with Argon2id key derivation; a verifier is stored, never the password
@@ -150,7 +159,8 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 - [x] Status bar
 
 ## Themes & customization
-- [x] Dark/light themes (legacy system theme migrates to dark)
+- [x] Two themes only: grayscale dark and warm-white light (legacy system theme migrates to dark)
+- [x] Flat, code-editor-like chrome: 1px borders, neutral surfaces, quiet blue accent
 - [x] Accent color
 - [x] CSS variables
 - [x] Editor typography settings
@@ -186,8 +196,10 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 - [x] Import vault (copy + broken link report)
 - [x] Backup (zip)
 - [x] Restore backup (zip)
-- [x] Export HTML
-- [x] PDF export (OS print pipeline → Save as PDF, offline)
+- [x] Export Markdown file (OS save dialog)
+- [x] Export standalone HTML file (styled, offline)
+- [x] PDF via the system browser print dialog (offline)
+- [x] Export/import settings JSON through a real file write
 
 ## Security
 - [x] Path validation
