@@ -1,6 +1,7 @@
-import { CloudOff, FileText } from "lucide-react";
+import { AlertTriangle, Check, CloudOff, FileText } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { baseName } from "../lib/files";
+import { capabilitiesFor } from "../lib/documentTypes";
 
 export default function StatusBar() {
   const vaultRoot = useAppStore((s) => s.vaultRoot);
@@ -15,7 +16,10 @@ export default function StatusBar() {
   const stats = active ? tabStats[active.id] : undefined;
   const cursor = active ? cursors[active.id] : undefined;
   const status = active ? saveStatus[active.id] ?? "idle" : null;
-  const noteCount = allFiles.filter((file) => !file.is_dir && /\.(md|markdown)$/i.test(file.path)).length;
+  const caps = active ? capabilitiesFor(active.path) : null;
+  const documentCount = allFiles.filter(
+    (file) => !file.is_dir && capabilitiesFor(file.path).indexable
+  ).length;
 
   const statusLabel =
     status === "dirty"
@@ -38,7 +42,8 @@ export default function StatusBar() {
       {vaultRoot && (
         <span className="nc-status-item text-fg-faint">
           <FileText size={10} />
-          {noteCount.toLocaleString()} {noteCount === 1 ? "note" : "notes"}
+          {documentCount.toLocaleString()}{" "}
+          {documentCount === 1 ? "document" : "documents"}
         </span>
       )}
 
@@ -70,21 +75,52 @@ export default function StatusBar() {
 
       <div className="flex-1" />
 
-      {active && cursor && (
+      {/* Validation badge for structured formats only. */}
+      {caps?.validator === "json" && stats?.validation && (
+        <span
+          className="nc-status-item"
+          title={
+            stats.validation.valid
+              ? "Valid JSON"
+              : `Invalid JSON${stats.validation.line ? ` at line ${stats.validation.line}, column ${stats.validation.column}` : ""}: ${stats.validation.message ?? ""}`
+          }
+          style={{
+            color: stats.validation.valid ? "var(--nc-fg-faint)" : "var(--nc-danger)",
+          }}
+        >
+          {stats.validation.valid ? <Check size={10} /> : <AlertTriangle size={10} />}
+          {stats.validation.valid ? "Valid JSON" : "Invalid JSON"}
+        </span>
+      )}
+
+      {active && cursor && caps?.stats !== "data" && (
         <span className="nc-status-item tabular-nums">
           Ln {cursor.line}, Col {cursor.col}
         </span>
       )}
-      {stats && (
+
+      {/* Prose files report words and characters; data files report lines. */}
+      {stats && caps?.stats === "prose" && (
         <span className="nc-status-item tabular-nums">
           {stats.words.toLocaleString()} words · {stats.chars.toLocaleString()} chars
         </span>
       )}
+      {stats && caps?.stats === "data" && (
+        <span className="nc-status-item tabular-nums">
+          {(stats.lines ?? 0).toLocaleString()} lines · {stats.chars.toLocaleString()} chars
+        </span>
+      )}
+      {stats && caps?.stats === "code" && (
+        <span className="nc-status-item tabular-nums">
+          {(stats.lines ?? 0).toLocaleString()} lines
+        </span>
+      )}
+
       <span className="nc-status-item">
         <CloudOff size={10} />
         Local only
       </span>
-      <span className="nc-status-item">UTF-8 · Markdown</span>
+      <span className="nc-status-item">{caps ? `UTF-8 · ${caps.label}` : "UTF-8"}</span>
     </footer>
   );
 }

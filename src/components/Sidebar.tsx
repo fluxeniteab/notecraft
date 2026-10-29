@@ -159,9 +159,11 @@ export default function Sidebar() {
       return;
     }
     if (prompt.mode === "create-file") {
+      // An explicit extension is honoured: `page.mdx` stays `.mdx`, and the
+      // template matches the format instead of being Markdown for everything.
       const rel = joinRel(dir, uniqueName(value, allFiles, dir));
-      if (!rel) throw new Error("Enter a note name");
-      await api.createFile(rel, `# ${stem(rel)}\n\n`);
+      if (!rel) throw new Error("Enter a file name");
+      await api.createDocument(rel);
       if (dir) {
         setExpanded((current) => new Set(current).add(dir));
         const kids = await api.listDir(dir).catch(() => []);
@@ -208,7 +210,8 @@ export default function Sidebar() {
   const duplicate = async (entry: FileEntry) => {
     try {
       const content = await api.readFile(entry.path);
-      const name = uniqueName(stem(entry.path), allFiles, dirName(entry.path));
+      const ext = entry.path.slice(entry.path.lastIndexOf("."));
+      const name = uniqueName(stem(entry.path) + ext, allFiles, dirName(entry.path));
       const rel = joinRel(dirName(entry.path), name);
       await api.createFile(rel, content);
       await refreshVault();
@@ -522,10 +525,19 @@ export default function Sidebar() {
 
       <PromptDialog
         open={!!prompt}
-        title={prompt?.mode === "rename" ? "Rename" : prompt?.mode === "create-folder" ? "New folder" : "New note"}
-        label={prompt?.mode === "create-folder" ? "Folder name" : "Note name"}
+        title={prompt?.mode === "rename" ? "Rename" : prompt?.mode === "create-folder" ? "New folder" : "New file"}
+        label={prompt?.mode === "create-folder" ? "Folder name" : "File name"}
         initial={prompt?.mode === "rename" ? baseName(prompt.entry.path) : ""}
-        placeholder={prompt?.mode === "create-folder" ? "Research" : "Untitled note"}
+        placeholder={
+          prompt?.mode === "create-folder"
+            ? "Research"
+            : "Untitled note.md, page.mdx, data.json…"
+        }
+        hint={
+          prompt?.mode === "create-file"
+            ? "Any supported extension works: .md, .mdx, .json, .yaml, .txt, .css, .js, .ts"
+            : undefined
+        }
         confirmLabel={prompt?.mode === "rename" ? "Rename" : "Create"}
         onClose={() => setPrompt(null)}
         onSubmit={(value) => runCreate(prompt?.mode === "rename" ? dirName(prompt.entry.path) : prompt?.dir ?? "", value)}

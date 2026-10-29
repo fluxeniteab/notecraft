@@ -1,4 +1,5 @@
 import type { FileEntry } from "./types";
+import { ensureDocumentName, extensionOf, hasDocumentExtension } from "./documentTypes";
 
 export function normalizeRel(path: string): string {
   // Vault-relative paths always use forward slashes. Collapse duplicate
@@ -25,16 +26,19 @@ export function dirName(path: string): string {
 
 export function stem(path: string): string {
   const name = baseName(path);
-  return name.replace(/\.(md|markdown|mdx|json)$/i, "");
+  if (!hasDocumentExtension(name)) return name;
+  const ext = extensionOf(name);
+  return name.slice(0, name.length - ext.length - 1);
 }
 
+/** Prose formats that can hold wiki links and Markdown structure. */
 export function isMarkdown(path: string): boolean {
-  return /\.(md|markdown)$/i.test(path);
+  return /\.(md|markdown|mdx)$/i.test(path);
 }
 
-/** Files the document engine can render as a note (Markdown, MDX, JSON). */
+/** Every file type the document engine can open and render. */
 export function isDocument(path: string): boolean {
-  return /\.(md|markdown|mdx|json)$/i.test(path);
+  return hasDocumentExtension(path);
 }
 
 export function joinRel(dir: string, name: string): string {
@@ -49,8 +53,12 @@ export function ensureMarkdown(name: string): string {
   return isMarkdown(trimmed) ? trimmed : `${trimmed}.md`;
 }
 
+/**
+ * Make a file name unique in a folder while keeping whichever supported
+ * extension the user typed. `page.mdx` stays `page.mdx`, never `page.mdx.md`.
+ */
 export function uniqueName(name: string, existing: FileEntry[], dir: string): string {
-  const wanted = ensureMarkdown(name);
+  const wanted = ensureDocumentName(name);
   const inDir = new Set(
     existing
       .filter((f) => dirName(f.path) === normalizeRel(dir))

@@ -1,3 +1,4 @@
+use crate::doc_types::{DocKind, PreviewMode};
 use crate::engine::{self, Dialect, Kind};
 use crate::error::AppResult;
 use regex::Regex;
@@ -264,7 +265,9 @@ fn sanitize(html: &str) -> String {
     let mut builder = ammonia::Builder::default();
     builder.add_tags([
         "input", "section", "dl", "dt", "dd", "mark", "del", "sup", "sub", "div", "span",
+        "details", "summary", "pre", "br", "hr",
     ]);
+    builder.add_tag_attributes("details", ["open"]);
     builder.add_generic_attributes(["class", "id"]);
     builder.add_tag_attributes("input", ["type", "checked", "disabled"]);
     builder.add_tag_attributes("th", ["align"]);
@@ -281,19 +284,119 @@ pub fn render_html(content: &str) -> String {
     sanitize(&engine::render(content, Dialect::Markdown))
 }
 
-/// Render any supported note through the NoteCraft engine, choosing the
-/// dialect from the file extension (`.md`, `.mdx`, `.json`).
-pub fn render_document(content: &str, path: &str) -> String {
-    sanitize(&engine::render_document(content, Kind::from_path(path)))
+/// Escape every character of user text for embedding in HTML.
+fn escape_text(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for ch in text.chars() {
+        match ch {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#39;"),
+            _ => out.push(ch),
+        }
+    }
+    out
 }
 
-/// True when the engine can render this file as a note.
+/// Source preview for code-like documents: escaped, line-numbered text. This
+/// is a preview, never an execution surface.
+fn render_source(content: &str, language: &str) -> String {
+    let mut out = String::from("<div class=\"nc-source\"><pre class=\"nc-source-pre\"><code");
+    if language != "text" {
+        out.push_str(&format!(" class=\"language-{}\"", escape_text(language)));
+    }
+    out.push('>');
+    out.push_str(&escape_text(content));
+    out.push_str("</code></pre></div>");
+    out
+}
+
+/// Structured JSON preview: a diagnostic banner when the document is invalid,
+/// otherwise a collapsible tree of values. Values are never executed.
+fn render_json(content: &str) -> String {
+    let report = crate::json_doc::analyze(content);
+    let mut out = String::from("<div class=\"nc-json\">");
+    if let Some(error) = &report.error {
+        out.push_str(&format!(
+            "<div class=\"nc-json-error\"><strong>Invalid JSON</strong> at line {}, column {}: {}</div>",
+            error.line,
+            error.column,
+            escape_text(&error.message)
+        ));
+        out.push_str(&render_source(content, "json"));
+        out.push_str("</div>");
+        return out;
+    }
+    out.push_str(&format!(
+        "<div class=\"nc-json-meta\">{} keys · {} values · depth {}</div>",
+        report.keys, report.nodes, report.depth
+    ));
+    if let Some(root) = &report.root {
+        out.push_str(&json_node_html(root, 0));
+    }
+    if report.truncated {
+        out.push_str("<p class=\"nc-json-note\">The tree stops at the display limit; the source is unchanged.</p>");
+    }
+    out.push_str("</div>");
+    out
+}
+
+fn json_node_html(node: &crate::json_doc::JsonNode, depth: usize) -> String {
+    let label = if node.key.is_empty() {
+        "root".to_string()
+    } else {
+        escape_text(&node.key)
+    };
+    if node.children.is_empty() {
+        return format!(
+            "<div class=\"nc-json-leaf\"><span class=\"nc-json-key\">{}</span><span class=\"nc-json-type\">{}</span><span class=\"nc-json-value\">{}</span></div>",
+            label,
+            node.kind,
+            escape_text(&node.preview)
+        );
+    }
+    let mut inner = String::new();
+    for child in &node.children {
+        inner.push_str(&json_node_html(child, depth + 1));
+    }
+    format!(
+        "<details class=\"nc-json-branch\" {}><summary><span class=\"nc-json-key\">{}</span><span class=\"nc-json-type\">{}</span><span class=\"nc-json-count\">{}</span></summary><div class=\"nc-json-children\">{}</div></details>",
+        if depth == 0 { "open" } else { "" },
+        label,
+        node.kind,
+        format!("· {}", node.children.len()),
+        inner
+    )
+}
+
+/// Render any supported document for the preview.
+///
+/// The dispatch is explicit: Markdown and MDX go through the engine, JSON gets
+/// the structured tree, and every other supported type is shown as escaped
+/// source. Nothing falls back silently to Markdown.
+pub fn render_document(content: &str, path: &str) -> String {
+    let kind = DocKind::from_path(path);
+    let caps = kind.capabilities();
+    match caps.preview {
+        PreviewMode::Prose => sanitize(&engine::render_document(
+            content,
+            if kind == DocKind::Mdx {
+                Kind::Mdx
+            } else {
+                Kind::Markdown
+            },
+        )),
+        PreviewMode::Json => sanitize(&render_json(content)),
+        PreviewMode::Source => sanitize(&render_source(content, caps.language)),
+        PreviewMode::None => String::new(),
+    }
+}
+
+/// True when the engine can render this file as a note preview.
 pub fn is_engine_document(path: &str) -> bool {
-    let lower = path.to_ascii_lowercase();
-    lower.ends_with(".md")
-        || lower.ends_with(".markdown")
-        || lower.ends_with(".mdx")
-        || lower.ends_with(".json")
+    crate::doc_types::has_document_extension(path)
 }
 
 pub fn update_frontmatter(content: &str, key: &str, value: Value) -> AppResult<String> {
@@ -366,7 +469,50 @@ mod tests {
     fn engine_extensions_are_recognised() {
         assert!(is_engine_document("a.mdx"));
         assert!(is_engine_document("a.json"));
+        assert!(is_engine_document("a.yml"));
         assert!(!is_engine_document("a.png"));
+        assert!(!is_engine_document("README"));
+    }
+
+    #[test]
+    fn json_preview_is_a_tree_not_markdown() {
+        let html = render_document(r#"{"name":"NoteCraft","tags":["a"]}"#, "data.json");
+        assert!(html.contains("nc-json"), "{html}");
+        assert!(html.contains("NoteCraft"));
+        // No Markdown headings leak into a JSON preview.
+        assert!(!html.contains("<h1"), "{html}");
+    }
+
+    #[test]
+    fn invalid_json_shows_a_diagnostic_and_keeps_the_source() {
+        let html = render_document("{\n  \"a\": ,\n}", "data.json");
+        assert!(html.contains("Invalid JSON"));
+        assert!(html.contains("nc-source"));
+        assert!(html.contains("&quot;a&quot;"));
+    }
+
+    #[test]
+    fn code_documents_preview_as_escaped_source() {
+        let html = render_document("body { color: red; }", "theme.css");
+        assert!(html.contains("nc-source"));
+        assert!(html.contains("language-css"));
+        let html = render_document("<script>alert(1)</script>", "page.html");
+        assert!(!html.contains("<script>"));
+        assert!(html.contains("&lt;script&gt;"));
+    }
+
+    #[test]
+    fn plain_text_is_not_rendered_as_markdown() {
+        let html = render_document("# not a heading", "notes.txt");
+        assert!(!html.contains("<h1"));
+        assert!(html.contains("# not a heading"));
+    }
+
+    #[test]
+    fn mdx_keeps_component_markers_and_heading_ids() {
+        let html = render_document("# Hi\n\n<Chart data={d} />", "page.mdx");
+        assert!(html.contains("nc-mdx-block"), "{html}");
+        assert!(html.contains("id=\"hi\""), "{html}");
     }
 }
 

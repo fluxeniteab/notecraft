@@ -24,9 +24,9 @@ pub fn mark_stale() {
     STALE.store(true, Ordering::SeqCst);
 }
 
+/// Every text document the registry can index, not just Markdown.
 fn is_markdown(rel: &str) -> bool {
-    let lower = rel.to_ascii_lowercase();
-    lower.ends_with(".md") || lower.ends_with(".markdown") || lower.ends_with(".mdx")
+    crate::doc_types::is_indexable(rel)
 }
 
 fn matches_folder(path: &str, folder: &str) -> bool {
@@ -41,16 +41,22 @@ fn note_document(
     body_f: tantivy::schema::Field,
     tags_f: tantivy::schema::Field,
 ) -> tantivy::TantivyDocument {
-    let parsed = crate::markdown::parse(content);
     let title = Path::new(rel)
         .file_stem()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_default();
-    let tags = parsed.tags.join(" ");
+    // Prose formats are indexed by their body text; structured/source formats
+    // are indexed verbatim so their keys and identifiers stay searchable.
+    let (body, tags) = if crate::doc_types::has_links(rel) {
+        let parsed = crate::markdown::parse(content);
+        (parsed.body, parsed.tags.join(" "))
+    } else {
+        (content.to_string(), String::new())
+    };
     doc!(
         path_f => rel.to_string(),
         title_f => title,
-        body_f => parsed.body,
+        body_f => body,
         tags_f => tags,
     )
 }

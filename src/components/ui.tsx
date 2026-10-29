@@ -273,6 +273,7 @@ export function PromptDialog({
   label,
   initial = "",
   placeholder,
+  hint,
   confirmLabel = "Confirm",
   onClose,
   onSubmit,
@@ -282,6 +283,8 @@ export function PromptDialog({
   label: string;
   initial?: string;
   placeholder?: string;
+  /** Small line of guidance under the input (for example allowed extensions). */
+  hint?: string;
   confirmLabel?: string;
   onClose: () => void;
   onSubmit: (value: string) => Promise<void> | void;
@@ -330,6 +333,9 @@ export function PromptDialog({
           }}
           className="nc-input"
         />
+        {hint && !error && (
+          <p className="mt-2 text-[10.5px] leading-relaxed text-fg-faint">{hint}</p>
+        )}
         {error && (
           <div className="mt-2 flex items-start gap-2 rounded-md border border-danger/20 bg-danger/5 px-2.5 py-2 text-[11px] text-danger">
             <AlertTriangle size={13} className="mt-0.5 shrink-0" />

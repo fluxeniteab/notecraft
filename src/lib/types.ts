@@ -46,6 +46,15 @@ export interface TaskRef {
   priority?: string | null;
 }
 
+export interface JsonTreeNode {
+  key: string;
+  pointer: string;
+  kind: "null" | "boolean" | "number" | "string" | "array" | "object";
+  preview: string;
+  children: JsonTreeNode[];
+  truncated: boolean;
+}
+
 export interface ParsedNote {
   frontmatter: { raw: string; data: Record<string, unknown> };
   body: string;

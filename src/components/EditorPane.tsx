@@ -7,6 +7,8 @@ import {
 } from "@codemirror/view";
 import { basicSetup } from "codemirror";
 import { markdown } from "@codemirror/lang-markdown";
+import { json as jsonLanguage } from "@codemirror/lang-json";
+import { javascript as jsLanguage } from "@codemirror/lang-javascript";
 import { toast } from "sonner";
 import katex from "katex";
 import "katex/dist/katex.min.css";
@@ -17,8 +19,32 @@ import { resolveNotePath, baseName } from "../lib/files";
 import { registerFlusher } from "../lib/saveRegistry";
 import { livePreview } from "../editor/livePreview";
 import { ncEditorExtensions } from "../editor/editorTheme";
+import { capabilitiesFor, isProse } from "../lib/documentTypes";
+import JsonPanel from "./JsonPanel";
 
 const liveCompartment = new Compartment();
+
+/**
+ * Pick the CodeMirror language for a document. Markdown is only one of the
+ * supported formats: JSON, JavaScript/TypeScript and plain text must not be
+ * highlighted as prose.
+ */
+function languageFor(path: string) {
+  const kind = capabilitiesFor(path).kind;
+  switch (kind) {
+    case "json":
+      return [jsonLanguage()];
+    case "javascript":
+      return [jsLanguage({ jsx: true })];
+    case "typescript":
+      return [jsLanguage({ jsx: /\.[jt]sx$/i.test(path), typescript: true })];
+    case "markdown":
+    case "mdx":
+      return [markdown()];
+    default:
+      return [];
+  }
+}
 
 function slugify(text: string): string {
   return text
@@ -119,6 +145,7 @@ export default function EditorPane({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [html, setHtml] = useState("");
+  const [editorText, setEditorText] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [externalContent, setExternalContent] = useState<string | null>(null);
   const [showCompare, setShowCompare] = useState(false);
@@ -306,10 +333,30 @@ export default function EditorPane({
         lastSavedRef.current = text;
         diskContentRef.current = text;
         lastSnapshotRef.current = text;
+        setEditorText(text);
         useAppStore.getState().setTabStats(tab.id, {
           words: countWords(text),
           chars: text.length,
+          lines: text.split(/\r?\n/).length,
         });
+        // Structured formats get a validity badge in the status bar.
+        if (capabilitiesFor(tab.path).validator === "json") {
+          void api
+            .jsonAnalyze(text)
+            .then((result) =>
+              useAppStore.getState().setTabStats(tab.id, {
+                validation: result.valid
+                  ? { valid: true }
+                  : {
+                      valid: false,
+                      line: result.error?.line,
+                      column: result.error?.column,
+                      message: result.error?.message,
+                    },
+              })
+            )
+            .catch(() => {});
+        }
         useAppStore.getState().setCursor(tab.id, { line: 1, col: 1 });
         if (modeRef.current === "reading" || modeRef.current === "split") {
           void api
@@ -323,10 +370,12 @@ export default function EditorPane({
             doc: text,
             extensions: [
               basicSetup,
-              markdown(),
+              ...languageFor(tab.path),
               ncEditorExtensions,
               EditorView.lineWrapping,
-              liveCompartment.of(modeRef.current === "live" ? livePreview : []),
+              liveCompartment.of(
+                modeRef.current === "live" && isProse(tab.path) ? livePreview : []
+              ),
               placeholderExt("Start writing…"),
               EditorView.contentAttributes.of({ "aria-label": `Editing ${baseName(tab.path)}` }),
               EditorView.updateListener.of((update: ViewUpdate) => {
@@ -366,7 +415,9 @@ export default function EditorPane({
                     useAppStore.getState().setTabStats(tab.id, {
                       words: countWords(value),
                       chars: value.length,
+                      lines: value.split(/\r?\n/).length,
                     });
+                    setEditorText(value);
                   }, 320);
 
                   if (modeRef.current === "reading" || modeRef.current === "split") {
@@ -430,7 +481,9 @@ export default function EditorPane({
     const view = viewRef.current;
     if (!view) return;
     view.dispatch({
-      effects: liveCompartment.reconfigure(tab.mode === "live" ? livePreview : []),
+      effects: liveCompartment.reconfigure(
+        tab.mode === "live" && isProse(tab.path) ? livePreview : []
+      ),
     });
     if (tab.mode === "reading" || tab.mode === "split") {
       const text = view.state.doc.toString();
@@ -645,8 +698,21 @@ export default function EditorPane({
     [scrollToHeading]
   );
 
+  const caps = capabilitiesFor(tab.path);
   const previewVisible = tab.mode === "reading" || tab.mode === "split";
   const editorVisible = tab.mode !== "reading";
+
+  /** Replace the whole document from a structured action (JSON format). */
+  const replaceDocument = useCallback((next: string) => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: next },
+      selection: { anchor: 0 },
+    });
+    setEditorText(next);
+    view.focus();
+  }, []);
 
   return (
     <div className="nc-pane" data-active={active} aria-hidden={!active}>
@@ -675,6 +741,8 @@ export default function EditorPane({
                   <RotateCw size={13} /> Try again
                 </button>
               </div>
+            ) : caps.preview === "json" ? (
+              <JsonPanel content={editorText} onApply={replaceDocument} />
             ) : (
               <article
                 ref={previewRef}

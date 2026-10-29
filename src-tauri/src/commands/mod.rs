@@ -349,8 +349,10 @@ pub fn write_file(
         Ok(())
     })?;
     // keep the search index and link database in sync with saves
-    if is_markdown(&rel) {
+    if is_indexable(&rel) {
         let _ = crate::search::index_note(&state, &rel, &content);
+    }
+    if has_links(&rel) {
         let g = state.inner.lock();
         if let Some(conn) = g.db.as_ref() {
             let _ = crate::links::rebuild_for_note(conn, &rel, &content);
@@ -377,8 +379,10 @@ pub fn write_file_if_unchanged(
         }
         vault::write_file_atomic(root, &rel, &content)
     })?;
-    if is_markdown(&rel) {
+    if is_indexable(&rel) {
         let _ = crate::search::index_note(&state, &rel, &content);
+    }
+    if has_links(&rel) {
         let g = state.inner.lock();
         if let Some(conn) = g.db.as_ref() {
             let _ = crate::links::rebuild_for_note(conn, &rel, &content);
@@ -391,8 +395,10 @@ pub fn write_file_if_unchanged(
 #[tauri::command]
 pub fn create_file(rel: String, content: String, state: State<AppState>) -> AppResult<()> {
     with_root(&state, |root| vault::create_file(root, &rel, &content))?;
-    if is_markdown(&rel) {
+    if is_indexable(&rel) {
         let _ = crate::search::index_note(&state, &rel, &content);
+    }
+    if has_links(&rel) {
         let g = state.inner.lock();
         if let Some(conn) = g.db.as_ref() {
             let _ = crate::links::rebuild_for_note(conn, &rel, &content);
@@ -422,7 +428,7 @@ pub fn rename_path(from: String, to: String, state: State<AppState>) -> AppResul
     with_root(&state, |root| vault::rename_path(root, &from, &to))?;
     purge_link_index(&state, &from);
     let _ = crate::search::remove_note(&state, &from);
-    if is_markdown(&to) {
+    if is_indexable(&to) {
         if let Ok(content) = with_root(&state, |root| vault::read_file(root, &to)) {
             let _ = crate::search::index_note(&state, &to, &content);
         }
@@ -436,7 +442,7 @@ pub fn move_path(from: String, to_dir: String, state: State<AppState>) -> AppRes
     let dest = with_root(&state, |root| vault::move_path(root, &from, &to_dir))?;
     purge_link_index(&state, &from);
     let _ = crate::search::remove_note(&state, &from);
-    if is_markdown(&dest) {
+    if is_indexable(&dest) {
         if let Ok(content) = with_root(&state, |root| vault::read_file(root, &dest)) {
             let _ = crate::search::index_note(&state, &dest, &content);
         }
@@ -445,9 +451,14 @@ pub fn move_path(from: String, to_dir: String, state: State<AppState>) -> AppRes
     Ok(dest)
 }
 
-fn is_markdown(rel: &str) -> bool {
-    let lower = rel.to_ascii_lowercase();
-    lower.ends_with(".md") || lower.ends_with(".markdown") || lower.ends_with(".mdx")
+/// Text documents are indexed (Markdown, MDX, JSON, YAML, source, text).
+fn is_indexable(rel: &str) -> bool {
+    crate::doc_types::is_indexable(rel)
+}
+
+/// Only prose formats carry wiki links, tags and tasks.
+fn has_links(rel: &str) -> bool {
+    crate::doc_types::has_links(rel)
 }
 
 // ---------- markdown ----------
@@ -465,6 +476,55 @@ pub fn render_html(content: String) -> AppResult<String> {
 #[tauri::command]
 pub fn render_document(content: String, path: String) -> AppResult<String> {
     Ok(crate::markdown::render_document(&content, &path))
+}
+
+/// Capabilities for a path, so the editor never has to guess from an extension.
+#[tauri::command]
+pub fn document_capabilities(path: String) -> crate::doc_types::DocCapabilities {
+    crate::doc_types::DocKind::from_path(&path).capabilities()
+}
+
+/// Source for a brand new document of the type implied by `rel`.
+#[tauri::command]
+pub fn document_template(rel: String) -> String {
+    let kind = crate::doc_types::DocKind::from_path(&rel);
+    kind.template(crate::doc_types::stem_of(&rel))
+}
+
+/// Create a document with the starter content of its own file type. Unlike the
+/// old path this never writes a Markdown heading into a `.json` file.
+#[tauri::command]
+pub fn create_document(rel: String, app: AppHandle, state: State<AppState>) -> AppResult<()> {
+    let kind = crate::doc_types::DocKind::from_path(&rel);
+    let content = kind.template(crate::doc_types::stem_of(&rel));
+    with_root(&state, |root| vault::create_file(root, &rel, &content))?;
+    if is_indexable(&rel) {
+        let _ = crate::search::index_note(&state, &rel, &content);
+    }
+    if has_links(&rel) {
+        let g = state.inner.lock();
+        if let Some(conn) = g.db.as_ref() {
+            let _ = crate::links::rebuild_for_note(conn, &rel, &content);
+        }
+    }
+    let _ = app.emit("vault-file-written", rel);
+    Ok(())
+}
+
+/// Validate a JSON document and describe its tree. Never evaluates values.
+#[tauri::command]
+pub fn json_analyze(content: String) -> crate::json_doc::JsonAnalysis {
+    crate::json_doc::analyze(&content)
+}
+
+#[tauri::command]
+pub fn json_format(content: String, indent: Option<usize>) -> AppResult<String> {
+    crate::json_doc::format(&content, indent.unwrap_or(2)).map_err(crate::error::AppError::Invalid)
+}
+
+#[tauri::command]
+pub fn json_minify(content: String) -> AppResult<String> {
+    crate::json_doc::minify(&content).map_err(crate::error::AppError::Invalid)
 }
 
 // ---------- search ----------

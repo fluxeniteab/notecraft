@@ -1,11 +1,13 @@
 pub mod ai;
 pub mod automation;
 pub mod commands;
+pub mod doc_types;
 pub mod engine;
 pub mod error;
 pub mod graph;
 pub mod history;
 pub mod import_export;
+pub mod json_doc;
 pub mod links;
 pub mod markdown;
 pub mod metadata;
@@ -57,6 +59,12 @@ pub fn run() {
             commands::parse_note,
             commands::render_html,
             commands::render_document,
+            commands::document_capabilities,
+            commands::document_template,
+            commands::create_document,
+            commands::json_analyze,
+            commands::json_format,
+            commands::json_minify,
             commands::export_note,
             commands::export_print_html,
             commands::save_text_file,

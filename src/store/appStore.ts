@@ -27,6 +27,10 @@ export interface PanelState {
 export interface TabStats {
   words: number;
   chars: number;
+  /** Line count, shown instead of prose statistics for data and code files. */
+  lines?: number;
+  /** Validation result for structured formats (JSON, YAML). */
+  validation?: { valid: boolean; line?: number; column?: number; message?: string } | null;
 }
 
 export interface GotoRequest {
@@ -84,7 +88,7 @@ interface AppState {
   setCommandPaletteOpen: (b: boolean) => void;
   setQuickSwitcherOpen: (b: boolean) => void;
   setSearchQuery: (q: string) => void;
-  setTabStats: (id: string, stats: TabStats) => void;
+  setTabStats: (id: string, stats: Partial<TabStats>) => void;
   setSaveStatus: (id: string, status: SaveStatus) => void;
   setCursor: (id: string, cursor: { line: number; col: number }) => void;
   gotoLine: (path: string, line: number) => void;
@@ -243,7 +247,13 @@ export const useAppStore = create<AppState>()(
       setCommandPaletteOpen: (b) => set({ commandPaletteOpen: b }),
       setQuickSwitcherOpen: (b) => set({ quickSwitcherOpen: b }),
       setSearchQuery: (q) => set({ searchQuery: q }),
-      setTabStats: (id, stats) => set({ tabStats: { ...get().tabStats, [id]: stats } }),
+      setTabStats: (id, stats) =>
+        set({
+          tabStats: {
+            ...get().tabStats,
+            [id]: { ...get().tabStats[id], ...stats },
+          },
+        }),
       setSaveStatus: (id, status) => set({ saveStatus: { ...get().saveStatus, [id]: status } }),
       setCursor: (id, cursor) => set({ cursors: { ...get().cursors, [id]: cursor } }),
       gotoLine: (path, line) =>

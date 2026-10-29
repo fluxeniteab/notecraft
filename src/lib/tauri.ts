@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { FileEntry, ParsedNote, Settings, SearchResult, GraphData, Snapshot, Workspace, LinkRef, TaskItem, CollectionConfig, SyncFileStatus, ProfileSession, ProfileSummary } from "./types";
+import type { FileEntry, ParsedNote, Settings, SearchResult, GraphData, Snapshot, Workspace, LinkRef, TaskItem, CollectionConfig, SyncFileStatus, ProfileSession, ProfileSummary, JsonTreeNode } from "./types";
 
 export const api = {
   // local profiles
@@ -37,6 +37,35 @@ export const api = {
   renderHtml: (content: string) => invoke<string>("render_html", { content }),
   renderDocument: (content: string, path: string) =>
     invoke<string>("render_document", { content, path }),
+  documentCapabilities: (path: string) =>
+    invoke<{
+      kind: string;
+      label: string;
+      extension: string;
+      language: string;
+      preview: string;
+      stats: string;
+      validator: string | null;
+      indexable: boolean;
+      has_links: boolean;
+    }>("document_capabilities", { path }),
+  documentTemplate: (rel: string) => invoke<string>("document_template", { rel }),
+  createDocument: (rel: string) => invoke<void>("create_document", { rel }),
+  jsonAnalyze: (content: string) =>
+    invoke<{
+      valid: boolean;
+      error: { message: string; line: number; column: number; offset: number } | null;
+      root: JsonTreeNode | null;
+      keys: number;
+      nodes: number;
+      depth: number;
+      lines: number;
+      bytes: number;
+      truncated: boolean;
+    }>("json_analyze", { content }),
+  jsonFormat: (content: string, indent?: number) =>
+    invoke<string>("json_format", { content, indent }),
+  jsonMinify: (content: string) => invoke<string>("json_minify", { content }),
   // search
   search: (query: string, filters?: Record<string, unknown>) => invoke<SearchResult[]>("search", { query, filters: filters ?? {} }),
   saveSearch: (id: string, name: string, query: string, filters: Record<string, unknown>) =>
