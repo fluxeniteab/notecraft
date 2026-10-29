@@ -26,6 +26,7 @@ import {
 import { useAppStore } from "../store/appStore";
 import { api } from "../lib/tauri";
 import { baseName, dirName, formatRelativeTime, stem } from "../lib/files";
+import { capabilitiesFor } from "../lib/documentTypes";
 import { flushTab } from "../lib/saveRegistry";
 import { pickVault } from "../lib/vaultActions";
 import { createNote as createNoteAction } from "../lib/noteActions";
@@ -33,11 +34,17 @@ import { exportNote, type ExportFormat } from "../lib/export";
 import EditorPane from "./EditorPane";
 import { ContextMenu, IconButton, Kbd, Segmented, type MenuEntry } from "./ui";
 
-const modeOptions = [
-  { value: "source" as const, label: <Code2 size={13} />, title: "Source — raw Markdown" },
+const proseModes = [
+  { value: "source" as const, label: <Code2 size={13} />, title: "Source — raw text" },
   { value: "live" as const, label: <Sparkles size={13} />, title: "Live — edit with rendered formatting" },
   { value: "reading" as const, label: <BookOpen size={13} />, title: "Reading — rendered note" },
   { value: "split" as const, label: <Columns2 size={13} />, title: "Split — editor and preview" },
+];
+
+const codeModes = [
+  { value: "source" as const, label: <Code2 size={13} />, title: "Editor" },
+  { value: "reading" as const, label: <BookOpen size={13} />, title: "Structured / rendered view" },
+  { value: "split" as const, label: <Columns2 size={13} />, title: "Split — editor and view" },
 ];
 
 function SaveChip({ state }: { state: "idle" | "dirty" | "saving" | "saved" | "error" }) {
@@ -78,6 +85,9 @@ export default function EditorArea({
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 
   const active = tabs.find((tab) => tab.id === activeTabId) ?? null;
+  // "Live" formatting only makes sense for prose; JSON and code get a smaller
+  // set of view modes instead of a control that does nothing.
+  const modeOptions = active && capabilitiesFor(active.path).preview === "prose" ? proseModes : codeModes;
   const stats = active ? tabStats[active.id] : undefined;
   const status = active ? (saveStatus[active.id] ?? "idle") : "idle";
 
@@ -204,7 +214,7 @@ export default function EditorArea({
 
           <div className="flex-1" />
 
-          {stats && (
+          {stats && active && capabilitiesFor(active.path).stats === "prose" && (
             <span className="hidden shrink-0 text-[10.5px] tabular-nums text-fg-faint md:inline">
               {stats.words.toLocaleString()} words
             </span>
