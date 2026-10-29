@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { EditorState, Compartment } from "@codemirror/state";
 import {
   EditorView,
+  keymap,
   placeholder as placeholderExt,
   type ViewUpdate,
 } from "@codemirror/view";
@@ -12,7 +13,7 @@ import { javascript as jsLanguage } from "@codemirror/lang-javascript";
 import { toast } from "sonner";
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import { AlertTriangle, RotateCw } from "lucide-react";
+import { AlertTriangle, Bold, Code, Heading1, Heading2, Italic, Link2, List, ListOrdered, Quote, RotateCw, Strikethrough } from "lucide-react";
 import { useAppStore, type Tab } from "../store/appStore";
 import { api } from "../lib/tauri";
 import { resolveNotePath, baseName } from "../lib/files";
@@ -57,6 +58,74 @@ function slugify(text: string): string {
 function countWords(text: string): number {
   const trimmed = text.trim();
   return trimmed ? trimmed.split(/\s+/).length : 0;
+}
+
+/** Wrap the current selection (or insert a pair at the cursor). */
+function wrapSelection(view: EditorView, before: string, after = before): void {
+  const { from, to } = view.state.selection.main;
+  const selected = view.state.sliceDoc(from, to);
+  view.dispatch({
+    changes: { from, to, insert: `${before}${selected}${after}` },
+    selection: {
+      anchor: from + before.length,
+      head: from + before.length + selected.length,
+    },
+  });
+  view.focus();
+}
+
+/** Toggle a line prefix such as `- ` or `> ` across the selected lines. */
+function toggleLinePrefix(view: EditorView, prefix: string): void {
+  const { from, to } = view.state.selection.main;
+  const first = view.state.doc.lineAt(from);
+  const last = view.state.doc.lineAt(to);
+  const lines = [];
+  for (let n = first.number; n <= last.number; n++) lines.push(view.state.doc.line(n));
+  const allPrefixed = lines.every((line) => line.text.trimStart().startsWith(prefix));
+  view.dispatch({
+    changes: lines.map((line) => {
+      if (allPrefixed) {
+        const index = line.text.indexOf(prefix);
+        return { from: line.from + index, to: line.from + index + prefix.length, insert: "" };
+      }
+      return { from: line.from, to: line.from, insert: prefix };
+    }),
+  });
+  view.focus();
+}
+
+/** Replace any existing heading marker on the selected lines. */
+function setHeading(view: EditorView, level: number): void {
+  const { from, to } = view.state.selection.main;
+  const first = view.state.doc.lineAt(from);
+  const last = view.state.doc.lineAt(to);
+  const insert = `${"#".repeat(level)} `;
+  const changes = [];
+  for (let n = first.number; n <= last.number; n++) {
+    const line = view.state.doc.line(n);
+    const match = line.text.match(/^(#{1,6})\s+/);
+    if (match) {
+      changes.push({ from: line.from, to: line.from + match[0].length, insert });
+    } else {
+      changes.push({ from: line.from, to: line.from, insert });
+    }
+  }
+  view.dispatch({ changes });
+  view.focus();
+}
+
+/** Insert a Markdown link and select the placeholder URL. */
+function insertLink(view: EditorView): void {
+  const { from, to } = view.state.selection.main;
+  const text = view.state.sliceDoc(from, to) || "text";
+  view.dispatch({
+    changes: { from, to, insert: `[${text}](url)` },
+    selection: {
+      anchor: from + text.length + 3,
+      head: from + text.length + 6,
+    },
+  });
+  view.focus();
 }
 
 /** Render $…$ / $$…$$ in the preview without touching code blocks. */
@@ -370,6 +439,12 @@ export default function EditorPane({
             doc: text,
             extensions: [
               basicSetup,
+              keymap.of([
+                { key: "Mod-b", run: (view) => { wrapSelection(view, "**"); return true; } },
+                { key: "Mod-i", run: (view) => { wrapSelection(view, "*"); return true; } },
+                { key: "Mod-e", run: (view) => { wrapSelection(view, "`"); return true; } },
+                { key: "Mod-Shift-x", run: (view) => { wrapSelection(view, "~~"); return true; } },
+              ]),
               ...languageFor(tab.path),
               ncEditorExtensions,
               EditorView.lineWrapping,
@@ -714,8 +789,50 @@ export default function EditorPane({
     view.focus();
   }, []);
 
+  const format = (action: (view: EditorView) => void) => {
+    const view = viewRef.current;
+    if (view) action(view);
+  };
+
+  const showFormatBar = editorVisible && isProse(tab.path) && tab.mode !== "reading";
+
   return (
     <div className="nc-pane" data-active={active} aria-hidden={!active}>
+      {showFormatBar && (
+        <div className="nc-format-bar" role="toolbar" aria-label="Formatting">
+          <button type="button" className="nc-format-btn" title="Bold (Ctrl+B)" aria-label="Bold" onClick={() => format((view) => wrapSelection(view, "**"))}>
+            <Bold size={13} />
+          </button>
+          <button type="button" className="nc-format-btn" title="Italic (Ctrl+I)" aria-label="Italic" onClick={() => format((view) => wrapSelection(view, "*"))}>
+            <Italic size={13} />
+          </button>
+          <button type="button" className="nc-format-btn" title="Strikethrough (Ctrl+Shift+X)" aria-label="Strikethrough" onClick={() => format((view) => wrapSelection(view, "~~"))}>
+            <Strikethrough size={13} />
+          </button>
+          <button type="button" className="nc-format-btn" title="Inline code (Ctrl+E)" aria-label="Inline code" onClick={() => format((view) => wrapSelection(view, "`"))}>
+            <Code size={13} />
+          </button>
+          <button type="button" className="nc-format-btn" title="Link" aria-label="Insert link" onClick={() => format(insertLink)}>
+            <Link2 size={13} />
+          </button>
+          <span className="nc-format-sep" aria-hidden="true" />
+          <button type="button" className="nc-format-btn" title="Heading 1" aria-label="Heading 1" onClick={() => format((view) => setHeading(view, 1))}>
+            <Heading1 size={13} />
+          </button>
+          <button type="button" className="nc-format-btn" title="Heading 2" aria-label="Heading 2" onClick={() => format((view) => setHeading(view, 2))}>
+            <Heading2 size={13} />
+          </button>
+          <button type="button" className="nc-format-btn" title="Quote" aria-label="Quote" onClick={() => format((view) => toggleLinePrefix(view, "> "))}>
+            <Quote size={13} />
+          </button>
+          <button type="button" className="nc-format-btn" title="Bulleted list" aria-label="Bulleted list" onClick={() => format((view) => toggleLinePrefix(view, "- "))}>
+            <List size={13} />
+          </button>
+          <button type="button" className="nc-format-btn" title="Numbered list" aria-label="Numbered list" onClick={() => format((view) => toggleLinePrefix(view, "1. "))}>
+            <ListOrdered size={13} />
+          </button>
+        </div>
+      )}
       <div className="nc-pane-split">
         <div
           className="nc-pane-editor"

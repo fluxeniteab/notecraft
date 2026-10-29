@@ -779,6 +779,50 @@ textarea {
   min-height: 0;
   display: flex;
 }
+
+/* Minimal, quiet formatting toolbar. */
+.nc-format-bar {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex: 0 0 auto;
+  height: 32px;
+  padding: 0 8px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--nc-border);
+  background: rgb(var(--nc-surface-rgb) / 0.55);
+}
+.nc-format-btn {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 24px;
+  border-radius: var(--nc-r-xs);
+  color: var(--nc-fg-muted);
+  transition:
+    background var(--nc-dur-fast) var(--nc-ease),
+    color var(--nc-dur-fast) var(--nc-ease);
+}
+.nc-format-btn:hover {
+  background: rgb(var(--nc-hover-rgb) / 0.9);
+  color: var(--nc-fg);
+}
+.nc-format-btn:focus-visible {
+  outline: 2px solid var(--nc-accent-ring);
+  outline-offset: -1px;
+}
+.nc-format-btn:active {
+  background: var(--nc-accent-soft);
+  color: var(--nc-accent);
+}
+.nc-format-sep {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 14px;
+  margin: 0 4px;
+  background: var(--nc-border);
+}
 .nc-pane-editor {
   min-width: 0;
   min-height: 0;
@@ -1400,6 +1444,48 @@ textarea {
 .nc-tree-actions button:hover {
   background: rgb(var(--nc-raised-rgb) / 0.9);
   color: var(--nc-fg);
+}
+
+/* Pinned + recent shortcuts above the file tree. */
+.nc-sidebar-pinned {
+  padding: 0 2px 2px;
+}
+.nc-sidebar-group-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 6px 3px;
+  color: var(--nc-fg-faint);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.nc-sidebar-group-divider {
+  height: 1px;
+  margin: 5px 4px 3px;
+  background: var(--nc-border);
+}
+.nc-pin-remove {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  border-radius: 4px;
+  color: var(--nc-fg-faint);
+  opacity: 0;
+  transition:
+    opacity var(--nc-dur-fast) var(--nc-ease),
+    color var(--nc-dur-fast) var(--nc-ease);
+}
+.nc-tree-row:hover .nc-pin-remove,
+.nc-pin-remove:focus-visible {
+  opacity: 1;
+}
+.nc-pin-remove:hover {
+  color: var(--nc-fg);
+  background: rgb(var(--nc-raised-rgb) / 0.9);
 }
 .nc-tree-children {
   overflow: hidden;

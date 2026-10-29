@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   ChevronRight,
+  Clock,
   Copy,
   FilePlus2,
   FileText,
@@ -13,6 +14,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Star,
   Trash2,
   X,
 } from "lucide-react";
@@ -32,6 +34,7 @@ import {
 } from "../lib/files";
 import { refreshVault, pickVault } from "../lib/vaultActions";
 import { flushTab } from "../lib/saveRegistry";
+import { isFavorite, toggleFavorite, useFavorites } from "../lib/favorites";
 import {
   ConfirmDialog,
   ContextMenu,
@@ -61,6 +64,8 @@ export default function Sidebar() {
   const allFiles = useAppStore((s) => s.allFiles);
   const tabs = useAppStore((s) => s.tabs);
   const activeTabId = useAppStore((s) => s.activeTabId);
+  const recentNotes = useAppStore((s) => s.recentNotes);
+  const favorites = useFavorites();
   const openTab = useAppStore((s) => s.openTab);
   const closeTab = useAppStore((s) => s.closeTab);
   const closeTabsUnder = useAppStore((s) => s.closeTabsUnder);
@@ -252,6 +257,17 @@ export default function Sidebar() {
     }
     return [
       { label: "Open", icon: <FileText size={13} />, onSelect: () => openTab(entry.path) },
+      {
+        label: isFavorite(entry.path) ? "Unpin from favorites" : "Pin to favorites",
+        icon: <Star size={13} />,
+        onSelect: () => {
+          toggleFavorite(entry.path);
+          toast.success(
+            isFavorite(entry.path) ? "Pinned to favorites" : "Removed from favorites",
+            { description: entry.name }
+          );
+        },
+      },
       { label: "Duplicate", icon: <Copy size={13} />, onSelect: () => void duplicate(entry) },
       { label: "Rename", icon: <Pencil size={13} />, onSelect: () => setPrompt({ mode: "rename", entry }) },
       { separator: true },
@@ -283,6 +299,18 @@ export default function Sidebar() {
   }, [allFiles, query]);
 
   const noteCount = allFiles.filter((f) => isDocument(f.path)).length;
+
+  const pinnedEntries = favorites
+    .map((path) => allFiles.find((file) => file.path === path))
+    .filter((entry): entry is FileEntry => !!entry && !entry.is_dir)
+    .slice(0, 8);
+  const recentEntries = recentNotes
+    .map((path) => allFiles.find((file) => file.path === path))
+    .filter(
+      (entry): entry is FileEntry =>
+        !!entry && !entry.is_dir && !favorites.includes(entry.path)
+    )
+    .slice(0, 5);
 
   const renderNode = (entry: FileEntry, depth: number): React.ReactNode => {
     const isDir = entry.is_dir;
@@ -498,6 +526,81 @@ export default function Sidebar() {
           </div>
         ) : (
           <div className="nc-tree">
+            {(pinnedEntries.length > 0 || recentEntries.length > 0) && (
+              <div className="nc-sidebar-pinned">
+                {pinnedEntries.length > 0 && (
+                  <>
+                    <div className="nc-sidebar-group-label">
+                      <Star size={10} /> Pinned
+                    </div>
+                    {pinnedEntries.map((entry) => (
+                      <div
+                        key={`pin-${entry.path}`}
+                        role="button"
+                        tabIndex={0}
+                        className="nc-tree-row"
+                        data-active={activePath === entry.path || undefined}
+                        style={{ paddingLeft: 8 }}
+                        onClick={() => openTab(entry.path)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openTab(entry.path);
+                          }
+                        }}
+                        title={entry.path}
+                      >
+                        <Star size={12} className="shrink-0 text-accent" />
+                        <span className="nc-tree-label">{entry.name}</span>
+                        <button
+                          type="button"
+                          className="nc-pin-remove"
+                          aria-label={`Unpin ${entry.name}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleFavorite(entry.path);
+                          }}
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
+                    ))}
+                  </>
+                )}
+                {recentEntries.length > 0 && (
+                  <>
+                    <div className="nc-sidebar-group-label">
+                      <Clock size={10} /> Recent
+                    </div>
+                    {recentEntries.map((entry) => (
+                      <div
+                        key={`recent-${entry.path}`}
+                        role="button"
+                        tabIndex={0}
+                        className="nc-tree-row"
+                        data-active={activePath === entry.path || undefined}
+                        style={{ paddingLeft: 8 }}
+                        onClick={() => openTab(entry.path)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openTab(entry.path);
+                          }
+                        }}
+                        title={entry.path}
+                      >
+                        <FileText size={12} className="shrink-0 text-fg-faint" />
+                        <span className="nc-tree-label">{entry.name}</span>
+                        <span className="max-w-[40%] truncate text-[9px] text-fg-faint">
+                          {dirName(entry.path)}
+                        </span>
+                      </div>
+                    ))}
+                  </>
+                )}
+                <div className="nc-sidebar-group-divider" />
+              </div>
+            )}
             {sortEntries(files).map((entry) => renderNode(entry, 0))}
             {files.length === 0 && (
               <div className="px-3 py-6 text-center">
