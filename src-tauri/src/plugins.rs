@@ -170,10 +170,20 @@ fn valid_id(id: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
 }
 
+/// Find a file in the archive by exact path, then by name, so packages made
+/// with a wrapping folder (the common zip layout) still install.
 fn find_file(archive: &mut zip::ZipArchive<std::fs::File>, wanted: &str) -> Option<String> {
+    let wanted_slash = format!("/{wanted}");
     for index in 0..archive.len() {
         let entry = archive.by_index(index).ok()?;
         if entry.name().eq_ignore_ascii_case(wanted) {
+            return Some(entry.name().to_string());
+        }
+    }
+    for index in 0..archive.len() {
+        let entry = archive.by_index(index).ok()?;
+        let name = entry.name().to_ascii_lowercase();
+        if name.ends_with(&wanted_slash.to_ascii_lowercase()) {
             return Some(entry.name().to_string());
         }
     }

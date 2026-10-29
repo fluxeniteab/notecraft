@@ -300,11 +300,15 @@ pub async fn chat(config: &AiConfig, system: &str, messages: &[ChatMessage]) -> 
     }
     let provider = presets()
         .into_iter()
-        .find(|preset| preset.id == config.provider);
+        .find(|preset| preset.id == config.provider.as_str());
     let is_gemini = provider
+        .as_ref()
         .map(|preset| preset.kind == "gemini")
         .unwrap_or(false);
-    let needs_key = provider.map(|preset| preset.needs_key).unwrap_or(true);
+    let needs_key = provider
+        .as_ref()
+        .map(|preset| preset.needs_key)
+        .unwrap_or(true);
     if needs_key && config.api_key.trim().is_empty() {
         return Err(AppError::Invalid(
             "this provider needs an API key (Settings → AI)".into(),
