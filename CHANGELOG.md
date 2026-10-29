@@ -15,11 +15,15 @@
 - **Context panel.** Outline, backlinks and unlinked mentions, tags/frontmatter, vault tasks and
   version history are all wired to the existing Rust commands.
 - **Knowledge graph** now renders with a deterministic force layout in the new shell.
+- **Assistant, canvas, collections and automations were ported.** The assistant sits in the
+  context panel with its provider setup, tool loop and diff-and-accept edit proposals; the canvas
+  places note cards on a shared board saved to `canvas/main.canvas.json`; collections render
+  folder/tag/property queries as a table, list, board or calendar; automations list, run, dry-run
+  and delete rules against the note you have open.
 
-### Removed from the visible UI (backend retained)
-- AI assistant, canvas boards, automations, collection/database views and third-party plugin
-  JavaScript execution are not exposed by the Svelte shell yet. Plugin management, the Rust
-  commands and the archived React implementation remain. See FEATURES.md.
+### Still not exposed
+- Third-party plugin JavaScript does not run in the new shell; plugin management (install,
+  enable, disable, uninstall) does. See FEATURES.md.
 
 ## 0.4.0
 

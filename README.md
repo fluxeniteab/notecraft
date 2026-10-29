@@ -8,11 +8,10 @@ A desktop notes app that keeps everything on your own machine, encrypted with yo
 ## What it is
 
 > **Interface status (0.4 development).** The React frontend has been retired and replaced by a
-> native-speed **Svelte 5 + TypeScript** interface. The Rust document engine, encrypted profiles and
-> file formats are unchanged. The new shell covers writing, the explorer, tabs, search, the graph,
-> tasks, history and plugin management; the AI, canvas, automation and collection panels from the
-> previous UI are not yet ported and are tracked in [FEATURES.md](FEATURES.md). The old frontend is
-> archived under `deprecated/tauri-ui/`.
+> **Svelte 5 + TypeScript** interface with a documented design-token layer. The Rust document
+> engine, encrypted profiles and file formats are unchanged. The shell covers writing, the
+> explorer, tabs, search, the graph, the AI assistant, canvas, collections, automations, tasks,
+> history and plugin management; the old frontend is archived under `deprecated/tauri-ui/`.
 
 NoteCraft is a Markdown knowledge base for people who want their notes to stay put:
 
@@ -28,13 +27,15 @@ NoteCraft is a Markdown knowledge base for people who want their notes to stay p
 - **Real links.** `[[wiki links]]`, backlinks, tags, unlinked mentions and a graph view.
 - **Workflow built in.** Tasks with due dates, daily notes, quick capture, version snapshots,
   favorites, full-text search and a command palette.
+- **AI assistant.** Provider presets or any OpenAI-compatible endpoint, keys sealed with your
+  profile, and an agent that reads, searches and proposes edits for approval.
+- **Canvas and collections.** Place notes on a shared board, and query the vault by folder, tag or
+  property as a table, list, board or calendar.
+- **Automations.** One-click rules that set a property, move a note or insert a template into the
+  note you have open.
 - **Plugin management.** Enable, disable, install and uninstall plugins from Settings. The
   sandboxed runtime is still being ported to the new interface.
 - **A CLI for agents.** `notecraft-cli` reads and writes the same vaults from a terminal.
-
-The Rust backend still contains the AI assistant, canvas, automations and collection views from
-earlier releases. Their commands remain available, but the Svelte shell does not expose them yet;
-see [FEATURES.md](FEATURES.md) for the current, itemised status.
 
 No account, no server, no telemetry. Nothing leaves the machine unless you point a sync folder at it.
 

@@ -3,10 +3,9 @@
 Legend: [x] implemented & tested, [~] partial, [ ] planned
 
 > **Svelte interface status.** The frontend was rebuilt in Svelte 5 + TypeScript. The Rust
-> document engine, profiles, vaults and file formats are unchanged and covered below. Panels that
-> are marked **archived UI only** still exist in the Rust backend and in the archived React UI
-> under `deprecated/tauri-ui/`, but the new shell does not expose them yet. They are not claimed
-> as working in the shipped UI.
+> document engine, profiles, vaults and file formats are unchanged and covered below. Every panel
+> listed here is available in the new shell; the archived React UI under `deprecated/tauri-ui/`
+> exists only for comparison and recovery.
 
 ## Document engine
 - [x] Own Rust renderer for Markdown (no third-party Markdown parser)
@@ -27,10 +26,10 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 - [x] Preview HTML escapes all user text and is sanitised again before insertion
 - [x] `render_document` command dispatches on the file extension; never silently falls back to Markdown
 
-## AI assistant (0.2.1) — backend retained, no Svelte panel yet
+## AI assistant
 
-> The commands and encrypted key storage exist in Rust. The redesigned shell does not include
-> the chat panel, so this section documents the backend/archived UI only.
+> The assistant lives in the context panel (Tools → Assistant, or the command palette). Keys are
+> encrypted in Rust and every request is issued from the Rust core, never the page.
 - [x] Provider presets: DeepSeek, Google Gemini, Mistral, OpenAI, OpenRouter, Groq
 - [x] Local runtimes: Ollama, LM Studio, llama.cpp (no API key)
 - [x] Inline SVG mark for every provider, in the panel and the setup grid
@@ -137,22 +136,22 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 - [x] Graph zoom/pan/select
 - [x] Incremental graph updates (rebuild on link rebuild)
 
-## Canvas — archived UI only
-- [~] Infinite workspace (archived React Flow implementation)
-- [~] Pan/zoom/select/drag/connect
-- [~] Node types (default cards)
-- [~] Multi-select/grouping
-- [~] Undo/redo
-- [~] Minimap, fit-to-content
-- [~] Copy/paste
-- [~] Save/restore (file)
-- [ ] Link node to note (not yet)
-- [ ] Svelte canvas view (not ported)
+## Canvas
+- [x] Infinite workspace (Svelte, `canvas/main.canvas.json`)
+- [x] Pan, zoom, select, drag
+- [x] One card per note; double-click opens the document
+- [x] Connect two cards by dragging from the right edge
+- [x] Save to a plain file the vault can read
+- [x] Delete a card without touching the note
+- [ ] Multi-select/grouping
+- [ ] Undo/redo inside the canvas
+- [ ] Minimap, fit-to-content
+- [ ] Copy/paste, keyboard nudging
 
-## Tags, properties, templates, views — note views are archived UI only
+## Tags, properties, templates, views
 
-> The new shell shows tags and frontmatter properties for the open document. Collections and
-> saved database-style views are not ported yet.
+> Properties and tags show for the open document in the context panel; Collections (View →
+> Collections) renders folder/tag/property queries as a table, list, board or calendar.
 - [x] Tags (parsed, stored)
 - [x] Nested tags (grouped under top-level parent in the tags panel)
 - [x] Tag rename (rewrites occurrences, rebuilds index)
@@ -233,12 +232,15 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 - [x] API docs (docs/PLUGIN_API.md)
 - [x] Marketplace interface (shipped catalog in Settings; embedded fallback for packaged builds)
 
-## Automation — backend retained, no Svelte panel yet
+## Automation
+
+> Manage rules in View → Automations. A rule runs on the note you have open, on demand.
 - [x] Rule model (db)
-- [x] Save/delete/list
+- [x] Save/delete/list, enable/disable from the panel
 - [x] Dry-run preview
 - [~] Triggers/conditions/actions engine (manual run + property/move/template actions)
 - [x] Loop detection/limits (execution counter)
+- [x] Run history with status and log
 
 ## Sync
 - [x] Status interface

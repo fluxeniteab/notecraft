@@ -1429,6 +1429,14 @@ a {
   user-select: text;
 }
 
+/* The assistant manages its own scrolling composer, so it gets the full height. */
+.rightbar-fill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
 .panel-section {
   padding: 4px 0 10px;
 }

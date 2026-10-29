@@ -3,11 +3,15 @@
   import { Search } from "lucide-svelte";
   import {
     activeTab,
+    automationsOpen,
+    canvasOpen,
     captureOpen,
+    collectionsOpen,
     focusMode,
     graphOpen,
     leftVisible,
     paletteOpen,
+    rightTab,
     rightVisible,
     saveSession,
     settingsOpen,
@@ -53,6 +57,19 @@
     { group: "Navigate", label: "Search all documents…", hint: "full text", run: () => { paletteOpen.set(false); document.dispatchEvent(new CustomEvent("notecraft:focus-search")); } },
     { group: "Navigate", label: "Open today's daily note", run: () => createDailyNote() },
     { group: "Navigate", label: "Open graph view", run: () => graphOpen.set(true) },
+    { group: "Navigate", label: "Open collections", hint: "table · board · calendar", run: () => collectionsOpen.set(true) },
+    { group: "Navigate", label: "Open automations", hint: "one-click rules", run: () => automationsOpen.set(true) },
+    { group: "Navigate", label: "Open canvas", hint: "spatial notes", run: () => canvasOpen.set(true) },
+    {
+      group: "Navigate",
+      label: "Open the assistant",
+      hint: "AI panel",
+      run: () => {
+        rightVisible.set(true);
+        rightTab.set("assistant");
+        saveSession();
+      },
+    },
 
     { group: "Document", label: "Save current file", hint: "Ctrl S", run: () => saveActive() },
     { group: "Document", label: "Create a version snapshot", run: () => snapshotActive() },

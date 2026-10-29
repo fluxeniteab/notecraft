@@ -9,6 +9,7 @@
     List,
     Loader2,
     RotateCcw,
+    Sparkles,
   } from "lucide-svelte";
   import type { ParsedNote, Snapshot, TaskItem } from "../lib/types";
   import {
@@ -23,6 +24,7 @@
   import { goToLine } from "../lib/editor";
   import { baseName, formatRelativeTime } from "../lib/files";
   import { runSearch, snapshotActive } from "../lib/actions";
+  import AiPanel from "./AiPanel.svelte";
 
   let parsed: ParsedNote | null = null;
   let backlinks: string[] = [];
@@ -163,8 +165,14 @@
     <button type="button" class="rightbar-tab" class:on={$rightTab === "history"} title="Version history" on:click={() => rightTab.set("history")}>
       <History size={14} />
     </button>
+    <button type="button" class="rightbar-tab" class:on={$rightTab === "assistant"} title="Assistant" on:click={() => rightTab.set("assistant")}>
+      <Sparkles size={14} />
+    </button>
   </div>
 
+  {#if $rightTab === "assistant"}
+    <div class="rightbar-fill"><AiPanel /></div>
+  {:else}
   <div class="rightbar-scroll">
     {#if !tab}
       <div class="panel-empty" style="padding-top:18px">Open a document to see its outline, links and properties.</div>
@@ -332,5 +340,6 @@
       </div>
     {/if}
   </div>
+  {/if}
 </aside>
 

@@ -102,7 +102,9 @@ export const selectedPath = writable<string | null>(null);
 export const expanded = writable<Set<string>>(new Set());
 
 export const sidebarView = writable<"files" | "search" | "tags">("files");
-export const rightTab = writable<"outline" | "backlinks" | "tags" | "tasks" | "history">("outline");
+export const rightTab = writable<"outline" | "backlinks" | "tags" | "tasks" | "history" | "assistant">(
+  "outline"
+);
 export const leftVisible = writable(true);
 export const rightVisible = writable(true);
 export const leftWidth = writable(268);
@@ -113,6 +115,9 @@ export const paletteOpen = writable(false);
 export const switcherOpen = writable(false);
 export const settingsOpen = writable(false);
 export const graphOpen = writable(false);
+export const collectionsOpen = writable(false);
+export const automationsOpen = writable(false);
+export const canvasOpen = writable(false);
 export const captureOpen = writable(false);
 export const aboutOpen = writable(false);
 export const shortcutsOpen = writable(false);

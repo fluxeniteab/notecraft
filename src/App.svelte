@@ -6,9 +6,12 @@
     aboutOpen,
     activeTabId,
     allFiles,
+    automationsOpen,
     booting,
+    canvasOpen,
     captureOpen,
     closeTab,
+    collectionsOpen,
     cycleTab,
     focusMode,
     graphOpen,
@@ -60,6 +63,9 @@
   import SettingsDialog from "./components/SettingsDialog.svelte";
   import LockScreen from "./components/LockScreen.svelte";
   import GraphView from "./components/GraphView.svelte";
+  import CollectionsView from "./components/CollectionsView.svelte";
+  import AutomationsView from "./components/AutomationsView.svelte";
+  import CanvasView from "./components/CanvasView.svelte";
   import QuickCapture from "./components/QuickCapture.svelte";
   import DialogHost from "./components/DialogHost.svelte";
   import Toasts from "./components/Toasts.svelte";
@@ -449,6 +455,15 @@
   {/if}
   {#if $graphOpen}
     <GraphView />
+  {/if}
+  {#if $collectionsOpen}
+    <CollectionsView />
+  {/if}
+  {#if $automationsOpen}
+    <AutomationsView />
+  {/if}
+  {#if $canvasOpen}
+    <CanvasView />
   {/if}
   {#if $captureOpen}
     <QuickCapture />

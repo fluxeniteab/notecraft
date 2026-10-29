@@ -17,7 +17,10 @@
   } from "lucide-svelte";
   import {
     activeTab,
+    automationsOpen,
+    canvasOpen,
     closeTab,
+    collectionsOpen,
     cycleTab,
     focusMode,
     graphOpen,
@@ -204,6 +207,18 @@
             label: "Graph view",
             action: () => graphOpen.set(true),
           },
+          {
+            label: "Collections",
+            action: () => collectionsOpen.set(true),
+          },
+          {
+            label: "Automations",
+            action: () => automationsOpen.set(true),
+          },
+          {
+            label: "Canvas",
+            action: () => canvasOpen.set(true),
+          },
           { separator: true },
           { label: "Source view", disabled: !hasTab, action: () => setMode("source") },
           { label: "Live preview", disabled: !hasTab || !isProse, action: () => setMode("live") },
@@ -263,6 +278,14 @@
 
       case "Tools":
         return [
+          {
+            label: "Assistant",
+            action: () => {
+              rightVisible.set(true);
+              rightTab.set("assistant");
+              saveSession();
+            },
+          },
           { label: "Settings…", shortcut: "Ctrl ,", action: () => settingsOpen.set(true) },
           { label: "Quick capture…", shortcut: "Ctrl Shift N", action: () => document.dispatchEvent(new CustomEvent("notecraft:capture")) },
           { label: "Create snapshot", disabled: !hasTab, action: () => void snapshotActive() },
