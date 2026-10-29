@@ -33,7 +33,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             theme: "dark".into(),
-            accent: "#4f86f7".into(),
+            accent: "#8b5cf6".into(),
             editor_font_size: 15,
             editor_line_height: 1.6,
             editor_font_family: "Inter, system-ui, sans-serif".into(),

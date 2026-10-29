@@ -11,42 +11,42 @@
   color-scheme: dark;
 
   /* Grayscale chrome: neutral surfaces only, like a code editor. */
-  --nc-bg: #0b0b0d;
-  --nc-bg-rgb: 11 11 13;
-  --nc-surface: #101012;
-  --nc-surface-rgb: 16 16 18;
-  --nc-elev: #151517;
-  --nc-elev-rgb: 21 21 23;
-  --nc-raised: #1a1a1d;
-  --nc-raised-rgb: 26 26 29;
-  --nc-muted: #212124;
-  --nc-muted-rgb: 33 33 36;
-  --nc-hover: #29292e;
-  --nc-hover-rgb: 41 41 46;
+  --nc-bg: #09090b;
+  --nc-bg-rgb: 9 9 11;
+  --nc-surface: #0d0d10;
+  --nc-surface-rgb: 13 13 16;
+  --nc-elev: #111115;
+  --nc-elev-rgb: 17 17 21;
+  --nc-raised: #17171c;
+  --nc-raised-rgb: 23 23 28;
+  --nc-muted: #1d1d24;
+  --nc-muted-rgb: 29 29 36;
+  --nc-hover: #202028;
+  --nc-hover-rgb: 32 32 40;
 
-  --nc-fg: #e9e9ec;
-  --nc-fg-rgb: 233 233 236;
-  --nc-fg-secondary: #a6a6ae;
-  --nc-fg-secondary-rgb: 166 166 174;
-  --nc-fg-muted: #82828b;
-  --nc-fg-muted-rgb: 130 130 139;
-  --nc-fg-faint: #595961;
-  --nc-fg-faint-rgb: 89 89 97;
+  --nc-fg: #f4f4f5;
+  --nc-fg-rgb: 244 244 245;
+  --nc-fg-secondary: #a1a1aa;
+  --nc-fg-secondary-rgb: 161 161 170;
+  --nc-fg-muted: #7c7c87;
+  --nc-fg-muted-rgb: 124 124 135;
+  --nc-fg-faint: #55555f;
+  --nc-fg-faint-rgb: 85 85 95;
 
-  --nc-border: #232328;
-  --nc-border-rgb: 35 35 40;
-  --nc-border-strong: #33333a;
-  --nc-border-strong-rgb: 51 51 58;
+  --nc-border: #26262e;
+  --nc-border-rgb: 38 38 46;
+  --nc-border-strong: #373742;
+  --nc-border-strong-rgb: 55 55 66;
 
-  --nc-accent: #4f86f7;
-  --nc-accent-rgb: 79 134 247;
-  --nc-accent-hover: #6b9bff;
+  --nc-accent: #8b5cf6;
+  --nc-accent-rgb: 139 92 246;
+  --nc-accent-hover: #9d75f8;
   --nc-accent-fg: #ffffff;
   --nc-accent-soft: rgb(var(--nc-accent-rgb) / 0.14);
   --nc-accent-softer: rgb(var(--nc-accent-rgb) / 0.06);
   --nc-accent-ring: rgb(var(--nc-accent-rgb) / 0.42);
-  --nc-blue: #7cb0ff;
-  --nc-blue-rgb: 124 176 255;
+  --nc-blue: #60a5fa;
+  --nc-blue-rgb: 96 165 250;
   --nc-success: #34d399;
   --nc-success-rgb: 52 211 153;
   --nc-warning: #fbbf24;
@@ -54,8 +54,8 @@
   --nc-danger: #f87171;
   --nc-danger-rgb: 248 113 113;
 
-  --nc-code-bg: #0d0d0f;
-  --nc-code-border: #1f1f23;
+  --nc-code-bg: #0b0b0e;
+  --nc-code-border: #22222a;
   --nc-editor-active-line: rgb(255 255 255 / 0.024);
   --nc-editor-selection: rgb(var(--nc-accent-rgb) / 0.24);
   --nc-editor-selection-focus: rgb(var(--nc-accent-rgb) / 0.32);
@@ -91,43 +91,42 @@
 [data-theme="light"] {
   color-scheme: light;
 
-  /* Warm white: paper tones instead of a cold blue-gray. */
-  --nc-bg: #faf7f1;
-  --nc-bg-rgb: 250 247 241;
-  --nc-surface: #fffdf8;
-  --nc-surface-rgb: 255 253 248;
+  --nc-bg: #f7f7f8;
+  --nc-bg-rgb: 247 247 248;
+  --nc-surface: #fbfbfc;
+  --nc-surface-rgb: 251 251 252;
   --nc-elev: #ffffff;
   --nc-elev-rgb: 255 255 255;
-  --nc-raised: #fffefa;
-  --nc-raised-rgb: 255 254 250;
-  --nc-muted: #f2ece2;
-  --nc-muted-rgb: 242 236 226;
-  --nc-hover: #eae3d7;
-  --nc-hover-rgb: 234 227 215;
+  --nc-raised: #ffffff;
+  --nc-raised-rgb: 255 255 255;
+  --nc-muted: #eeeef2;
+  --nc-muted-rgb: 238 238 242;
+  --nc-hover: #e6e6ec;
+  --nc-hover-rgb: 230 230 236;
 
-  --nc-fg: #1b1917;
-  --nc-fg-rgb: 27 25 23;
-  --nc-fg-secondary: #57534e;
-  --nc-fg-secondary-rgb: 87 83 78;
-  --nc-fg-muted: #7a736b;
-  --nc-fg-muted-rgb: 122 115 107;
-  --nc-fg-faint: #a9a29a;
-  --nc-fg-faint-rgb: 169 162 154;
+  --nc-fg: #18181b;
+  --nc-fg-rgb: 24 24 27;
+  --nc-fg-secondary: #52525b;
+  --nc-fg-secondary-rgb: 82 82 91;
+  --nc-fg-muted: #71717a;
+  --nc-fg-muted-rgb: 113 113 122;
+  --nc-fg-faint: #a1a1aa;
+  --nc-fg-faint-rgb: 161 161 170;
 
-  --nc-border: #e7dfd3;
-  --nc-border-rgb: 231 223 211;
-  --nc-border-strong: #d7ccbb;
-  --nc-border-strong-rgb: 215 204 187;
+  --nc-border: #e4e4e7;
+  --nc-border-rgb: 228 228 231;
+  --nc-border-strong: #d4d4d8;
+  --nc-border-strong-rgb: 212 212 216;
 
-  --nc-accent: #1f6feb;
-  --nc-accent-rgb: 31 111 235;
-  --nc-accent-hover: #1a5fcc;
+  --nc-accent: #7c3aed;
+  --nc-accent-rgb: 124 58 237;
+  --nc-accent-hover: #6d28d9;
   --nc-accent-fg: #ffffff;
   --nc-accent-soft: rgb(var(--nc-accent-rgb) / 0.1);
   --nc-accent-softer: rgb(var(--nc-accent-rgb) / 0.05);
   --nc-accent-ring: rgb(var(--nc-accent-rgb) / 0.32);
-  --nc-blue: #1f6feb;
-  --nc-blue-rgb: 31 111 235;
+  --nc-blue: #60a5fa;
+  --nc-blue-rgb: 96 165 250;
   --nc-success: #059669;
   --nc-success-rgb: 5 150 105;
   --nc-warning: #b45309;
@@ -135,16 +134,38 @@
   --nc-danger: #dc2626;
   --nc-danger-rgb: 220 38 38;
 
-  --nc-code-bg: #f5efe5;
-  --nc-code-border: #e8dfd2;
-  --nc-editor-active-line: rgb(0 0 0 / 0.02);
+  --nc-code-bg: #f4f4f5;
+  --nc-code-border: #e4e4e7;
+  --nc-editor-active-line: rgb(0 0 0 / 0.03);
   --nc-editor-selection: rgb(var(--nc-accent-rgb) / 0.14);
   --nc-editor-selection-focus: rgb(var(--nc-accent-rgb) / 0.2);
 
-  --nc-shadow-sm: 0 1px 2px rgb(60 46 30 / 0.08);
-  --nc-shadow: 0 10px 26px -12px rgb(60 46 30 / 0.2), 0 2px 6px rgb(60 46 30 / 0.06);
-  --nc-shadow-lg: 0 28px 70px -24px rgb(60 46 30 / 0.3), 0 8px 24px -14px rgb(60 46 30 / 0.14);
-  --nc-glow: 0 0 0 1px rgb(var(--nc-accent-rgb) / 0.18), 0 10px 30px -14px rgb(60 46 30 / 0.2);
+  --nc-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.06);
+  --nc-shadow: 0 10px 26px -12px rgb(0 0 0 / 0.12), 0 2px 6px rgb(0 0 0 / 0.05);
+  --nc-shadow-lg: 0 28px 70px -24px rgb(0 0 0 / 0.18), 0 8px 24px -14px rgb(0 0 0 / 0.1);
+  --nc-glow: 0 0 0 1px rgb(var(--nc-accent-rgb) / 0.18), 0 10px 30px -14px rgb(0 0 0 / 0.1);
+
+  --nc-font-ui: "Inter Variable", "Inter", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --nc-font-title: "Newsreader Variable", "Newsreader", "Iowan Old Style", Georgia, serif;
+  --nc-font-editor: "Inter Variable", "Inter", "Segoe UI", system-ui, sans-serif;
+  --nc-font-mono: "JetBrains Mono Variable", "JetBrains Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+  --nc-editor-size: 15.5px;
+  --nc-editor-line: 1.75;
+  --nc-reading-width: 760px;
+
+  --nc-r-xs: 4px;
+  --nc-r-sm: 6px;
+  --nc-r-md: 9px;
+  --nc-r-lg: 13px;
+  --nc-r-xl: 18px;
+
+  --nc-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --nc-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --nc-dur-fast: 140ms;
+  --nc-dur: 180ms;
+  --nc-dur-slow: 260ms;
+  --nc-titlebar-h: 44px;
+  --nc-statusbar-h: 26px;
 }
 
 /* ---------------------------------------------------------------- *
@@ -2684,37 +2705,6 @@ textarea {
   .nc-settings-nav-btn span { display: none; }
   .nc-setting-row { flex-direction: column; align-items: flex-start; gap: 8px; }
   .nc-setting-control { width: 100%; }
-}
-
-/* ---------------------------------------------------------------- *
- * Native type, softer surfaces (v0.2)
- * Use the operating system's own UI fonts so the app matches the
- * desktop instead of shipping webfonts.
- * ---------------------------------------------------------------- */
-:root,
-[data-theme="dark"],
-[data-theme="light"] {
-  --nc-font-ui: system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-  --nc-font-title: system-ui, -apple-system, "Segoe UI Variable Display", "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-  --nc-font-editor: system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-  --nc-font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas,
-    "Liberation Mono", monospace;
-}
-
-[data-theme="dark"] {
-  /* Pull the border rhythm down a notch: the old values read as hard lines. */
-  --nc-border: #202027;
-  --nc-border-strong: #2c2c35;
-  --nc-fg: #ebebef;
-  --nc-fg-secondary: #a4a4ad;
-}
-
-[data-theme="light"] {
-  --nc-border: #e8e8ec;
-  --nc-border-strong: #d8d8de;
 }
 
 /* ---------------------------------------------------------------- *

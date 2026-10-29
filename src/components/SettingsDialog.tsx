@@ -26,7 +26,7 @@ import type { Settings, SyncFileStatus, Theme } from "../lib/types";
 import { Switch, Kbd, Modal } from "./ui";
 import { Puzzle, RefreshCw } from "lucide-react";
 
-const accents = ["#4f86f7", "#8b5cf6", "#6366f1", "#06b6d4", "#10b981", "#f59e0b", "#f43f5e"];
+const accents = ["#8b5cf6", "#6366f1", "#3b82f6", "#06b6d4", "#10b981", "#f59e0b", "#f43f5e"];
 
 type Section = "appearance" | "editor" | "files" | "plugins" | "about";
 
@@ -385,13 +385,13 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
         id: "dark" as const,
         name: "Graphite",
         description: "Neutral black, quiet blue",
-        swatch: ["#0b0b0d", "#1a1a1d", "#4f86f7"],
+        swatch: ["#09090b", "#17171c", "#8b5cf6"],
       },
       {
         id: "light" as const,
         name: "Warm paper",
         description: "Warm white, stone ink",
-        swatch: ["#faf7f1", "#fffdf8", "#1f6feb"],
+        swatch: ["#f7f7f8", "#fbfbfc", "#7c3aed"],
       },
     ],
     []
@@ -510,7 +510,7 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
                         Custom
                         <input
                           type="color"
-                          value={/^#[0-9a-f]{6}$/i.test(draft.accent) ? draft.accent : "#4f86f7"}
+                          value={/^#[0-9a-f]{6}$/i.test(draft.accent) ? draft.accent : "#8b5cf6"}
                           onChange={(event) => update("accent", event.target.value)}
                           className="h-7 w-9 cursor-pointer rounded border border-border bg-transparent p-0.5"
                           aria-label="Custom accent color"
