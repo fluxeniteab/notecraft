@@ -137,7 +137,7 @@ export default function App() {
       .then((list) => {
         list
           .filter((plugin) => plugin.enabled)
-          .forEach((plugin) => void loadPlugin(plugin.id).catch(() => {}));
+          .forEach((plugin) => void loadPlugin(plugin).catch(() => {}));
       })
       .catch(() => {});
   }, []);

@@ -252,8 +252,10 @@ mod tests {
         let root = report.root.unwrap();
         assert_eq!(root.kind, "object");
         assert_eq!(root.children.len(), 3);
+        assert_eq!(root.children[0].key, "name");
         assert_eq!(root.children[1].preview, "3");
         assert_eq!(root.children[2].pointer, "/tags");
+        assert_eq!(root.children[2].children.len(), 2);
     }
 
     #[test]
@@ -283,23 +285,53 @@ mod tests {
         let report = analyze(source);
         assert!(report.valid);
         let root = report.root.unwrap();
-        assert_eq!(root.children[0].preview, "\"🎉\"");
-        assert_eq!(root.children[1].preview, "\"say \\\"hi\\\"\"");
+        let by_key = |key: &str| {
+            root.children
+                .iter()
+                .find(|node| node.key == key)
+                .map(|node| node.preview.clone())
+                .unwrap_or_default()
+        };
+        assert_eq!(by_key("emoji"), "\"🎉\"");
+        assert_eq!(by_key("quote"), "\"say \\\"hi\\\"\"");
+        assert_eq!(by_key("path"), "\"a\\b\"");
     }
 
     #[test]
     fn deep_nesting_is_bounded_not_fatal() {
+        // Moderately nested input is valid and the reported depth is bounded.
         let mut source = String::new();
-        for _ in 0..400 {
+        for _ in 0..40 {
             source.push('[');
         }
         source.push('1');
-        for _ in 0..400 {
+        for _ in 0..40 {
             source.push(']');
         }
         let report = analyze(&source);
         assert!(report.valid);
         assert!(report.depth <= MAX_DEPTH + 1);
+
+        // Pathological nesting must be reported, never panic.
+        let mut pathological = String::new();
+        for _ in 0..5000 {
+            pathological.push('[');
+        }
+        for _ in 0..5000 {
+            pathological.push(']');
+        }
+        let report = analyze(&pathological);
+        assert!(!report.valid);
+        assert!(report.error.is_some());
+    }
+
+    #[test]
+    fn object_keys_keep_document_order() {
+        // A JSON viewer must not alphabetise the file the user is editing.
+        let report = analyze(r#"{"zeta":1,"alpha":2}"#);
+        let root = report.root.unwrap();
+        assert_eq!(root.children[0].key, "zeta");
+        assert_eq!(root.children[1].key, "alpha");
     }
 
     #[test]

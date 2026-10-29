@@ -108,6 +108,56 @@ pub fn uninstall(state: &State<AppState>, id: &str) -> AppResult<()> {
 // `icon.png` are optional. Everything is extracted under the app data folder.
 // ---------------------------------------------------------------------
 
+/// Permissions a plugin may request.
+///
+/// The list is the complete truth: an unknown permission is rejected at install
+/// time instead of being silently ignored, and the runtime only hands the
+/// plugin the commands its granted permissions cover. Note that this scopes the
+/// plugin API; JavaScript modules still share a realm with the app, so plugins
+/// remain trusted code (see docs/PLUGINS.md).
+pub const KNOWN_PERMISSIONS: [&str; 8] = [
+    "notes:read",
+    "notes:write",
+    "notes:create",
+    "notes:delete",
+    "links:read",
+    "ui:notify",
+    "editor:open",
+    "settings:read",
+];
+
+/// Permissions that let a plugin destroy or overwrite user data. The settings
+/// page highlights these before a plugin is trusted.
+pub const SENSITIVE_PERMISSIONS: [&str; 2] = ["notes:write", "notes:delete"];
+
+/// Validate and de-duplicate a manifest's declared permissions.
+pub fn normalize_permissions(declared: &[String]) -> AppResult<Vec<String>> {
+    let mut out: Vec<String> = Vec::new();
+    for raw in declared {
+        let perm = raw.trim().to_ascii_lowercase();
+        if perm.is_empty() {
+            continue;
+        }
+        if !KNOWN_PERMISSIONS.contains(&perm.as_str()) {
+            return Err(AppError::Invalid(format!(
+                "unknown plugin permission: {perm}. Supported permissions are: {}",
+                KNOWN_PERMISSIONS.join(", ")
+            )));
+        }
+        if !out.contains(&perm) {
+            out.push(perm);
+        }
+    }
+    Ok(out)
+}
+
+/// True when the plugin asks for a permission that can destroy user data.
+pub fn has_sensitive_permission(permissions: &[String]) -> bool {
+    permissions
+        .iter()
+        .any(|perm| SENSITIVE_PERMISSIONS.contains(&perm.as_str()))
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PluginManifest {
@@ -238,6 +288,9 @@ pub fn import_zip(path: &str, state: &State<AppState>) -> AppResult<PluginInfo> 
     if manifest.version.trim().is_empty() {
         manifest.version = "0.0.1".into();
     }
+    // Reject unknown permissions instead of granting something the user was
+    // never shown.
+    manifest.permissions = normalize_permissions(&manifest.permissions)?;
 
     let declared_entry = manifest.main.clone().or_else(|| manifest.entry.clone());
     let entry_name = match declared_entry {
@@ -394,4 +447,44 @@ pub fn package(state: &State<AppState>, id: &str) -> AppResult<PluginPackage> {
         style,
         icon,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn permissions_are_lowercased_deduped_and_ordered() {
+        let perms = normalize_permissions(&[
+            " Notes:Read ".into(),
+            "notes:read".into(),
+            "ui:notify".into(),
+        ])
+        .unwrap();
+        assert_eq!(perms, vec!["notes:read", "ui:notify"]);
+    }
+
+    #[test]
+    fn unknown_permissions_are_rejected() {
+        let error = normalize_permissions(&["fs:write".into()]).unwrap_err();
+        assert!(error.to_string().contains("unknown plugin permission"));
+    }
+
+    #[test]
+    fn sensitive_permissions_are_detected() {
+        assert!(has_sensitive_permission(&["notes:delete".into()]));
+        assert!(has_sensitive_permission(&[
+            "ui:notify".into(),
+            "notes:write".into()
+        ]));
+        assert!(!has_sensitive_permission(&[
+            "ui:notify".into(),
+            "notes:read".into()
+        ]));
+    }
+
+    #[test]
+    fn empty_permission_list_is_valid() {
+        assert!(normalize_permissions(&[]).unwrap().is_empty());
+    }
 }

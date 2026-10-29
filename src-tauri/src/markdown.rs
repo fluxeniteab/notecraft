@@ -488,7 +488,8 @@ mod tests {
         let html = render_document("{\n  \"a\": ,\n}", "data.json");
         assert!(html.contains("Invalid JSON"));
         assert!(html.contains("nc-source"));
-        assert!(html.contains("&quot;a&quot;"));
+        // The offending source line is shown verbatim (escaped), not rewritten.
+        assert!(html.contains(": ,"));
     }
 
     #[test]

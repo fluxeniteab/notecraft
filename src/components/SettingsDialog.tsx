@@ -200,7 +200,7 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
               }
             })
             .catch(() => {});
-          if (plugin.enabled) void loadPlugin(plugin.id).catch(() => {});
+          if (plugin.enabled) void loadPlugin(plugin).catch(() => {});
         });
       })
       .catch(() => setPluginList([]));
@@ -214,7 +214,7 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
         const plugin = await pluginEngine.importZip(path);
         toast.success("Plugin installed", { description: `${plugin.name} v${plugin.version}` });
         loadPlugins();
-        await loadPlugin(plugin.id).catch((error) =>
+        await loadPlugin(plugin).catch((error) =>
           toast.error("Installed, but could not start", { description: String(error) })
         );
       } catch (error) {
@@ -1038,7 +1038,7 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
                                   .then(() => {
                                     loadPlugins();
                                     if (value) {
-                                      void loadPlugin(plugin.id).catch((error) =>
+                                      void loadPlugin(plugin).catch((error) =>
                                         toast.error("Could not start the plugin", { description: String(error) })
                                       );
                                     } else {
