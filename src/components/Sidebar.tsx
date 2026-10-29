@@ -174,7 +174,13 @@ export default function Sidebar() {
     // rename
     const entry = prompt.entry;
     const parent = dirName(entry.path);
-    const nextName = entry.is_dir ? value.trim().replace(/[\\/]+/g, "-") : ensureMarkdown(value);
+    // Only Markdown notes get the .md default; renaming a .mdx or .json file
+    // must not append a second extension.
+    const nextName = entry.is_dir
+      ? value.trim().replace(/[\\/]+/g, "-")
+      : isMarkdown(entry.path)
+        ? ensureMarkdown(value)
+        : value.trim().replace(/[\\/]+/g, "-");
     const to = joinRel(parent, nextName);
     if (!to || to === entry.path) return;
     await closeTabsFor(entry);
