@@ -80,12 +80,6 @@ impl Report {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-enum Tag {
-    Open(String),
-    Close(String),
-}
-
 fn tag_name(inner: &str) -> Option<(String, bool)> {
     let inner = inner.trim();
     if inner.is_empty() || inner.starts_with('!') || inner.starts_with('?') {
@@ -107,7 +101,8 @@ fn tag_name(inner: &str) -> Option<(String, bool)> {
 /// Counts JSX opening/closing tags, braces and quotes in one pass.
 fn scan(text: &str) -> (Vec<Diagnostic>, Vec<String>, usize) {
     let mut diagnostics = Vec::new();
-    let mut stack: Vec<(Tag, usize, usize)> = Vec::new();
+    // Open components with the position they were opened at.
+    let mut stack: Vec<(String, usize, usize)> = Vec::new();
     let mut components: Vec<String> = Vec::new();
     let mut expressions = 0usize;
     let mut brace_depth: Vec<(usize, usize)> = Vec::new();
@@ -138,7 +133,11 @@ fn scan(text: &str) -> (Vec<Diagnostic>, Vec<String>, usize) {
                 continue;
             }
             match ch {
-                '"' | '\'' | '`' => in_string = Some((ch, line_no, col + 1)),
+                // A quote only opens a string inside `{…}` or a tag. Prose such
+                // as "don't" must not swallow the rest of the document.
+                '"' | '\'' | '`' if !brace_depth.is_empty() => {
+                    in_string = Some((ch, line_no, col + 1));
+                }
                 '{' => {
                     brace_depth.push((line_no, col + 1));
                     expressions += 1;
@@ -153,58 +152,52 @@ fn scan(text: &str) -> (Vec<Diagnostic>, Vec<String>, usize) {
                     }
                 }
                 '<' => {
-                    let rest: String = line[col..].to_string();
-                    if let Some(close) = rest.find('>') {
-                        let inner = &rest[1..close];
-                        if let Some((name, closes)) = tag_name(inner) {
-                            if closes {
-                                // Closing or self-closing: match against the stack.
-                                let expect = if inner.trim_start().starts_with('/') {
-                                    Some(Tag::Close(name.clone()))
-                                } else {
-                                    None
-                                };
-                                if let Some(expect) = expect {
-                                    match stack.pop() {
-                                        Some((open, open_line, open_col)) => {
-                                            if open != expect {
-                                                let open_name = match &open {
-                                                    Tag::Open(n) => n.clone(),
-                                                    Tag::Close(n) => n.clone(),
-                                                };
-                                                diagnostics.push(Diagnostic::error(
-                                                    line_no,
-                                                    col + 1,
-                                                    format!(
-                                                        "closing tag `</{name}>` does not match `{open_name}` opened at line {open_line}, column {open_col}"
-                                                    ),
-                                                ));
-                                            }
-                                        }
-                                        None => diagnostics.push(Diagnostic::error(
+                    let rest = &line[col..];
+                    // `<` in prose ("a < b") is not a tag.
+                    let follows_tag_name = rest[1..]
+                        .chars()
+                        .next()
+                        .is_some_and(|c| c.is_alphabetic() || c == '/');
+                    if !follows_tag_name {
+                        continue;
+                    }
+                    let Some(close) = rest.find('>') else {
+                        continue;
+                    };
+                    let inner = &rest[1..close];
+                    if let Some((name, self_closing)) = tag_name(inner) {
+                        let closing = inner.trim_start().starts_with('/');
+                        if closing {
+                            match stack.pop() {
+                                Some((open_name, open_line, open_col)) => {
+                                    if open_name != name {
+                                        diagnostics.push(Diagnostic::error(
                                             line_no,
                                             col + 1,
-                                            format!("closing tag `</{name}>` has no opening tag"),
-                                        )),
+                                            format!(
+                                                "closing tag `</{name}>` does not match `{open_name}` opened at line {open_line}, column {open_col}"
+                                            ),
+                                        ));
                                     }
-                                } else if !name.is_empty()
-                                    && name.chars().next().is_some_and(|c| c.is_uppercase())
-                                    && !components.contains(&name)
-                                {
-                                    components.push(name.clone());
                                 }
-                            } else {
-                                stack.push((Tag::Open(name.clone()), line_no, col + 1));
-                                if name.chars().next().is_some_and(|c| c.is_uppercase())
-                                    && !components.contains(&name)
-                                {
-                                    components.push(name);
-                                }
+                                None => diagnostics.push(Diagnostic::error(
+                                    line_no,
+                                    col + 1,
+                                    format!("closing tag `</{name}>` has no opening tag"),
+                                )),
                             }
-                            // Skip past the tag's `>`.
-                            for _ in 0..rest[..=close].chars().count().saturating_sub(1) {
-                                chars.next();
-                            }
+                        } else if !self_closing {
+                            stack.push((name.clone(), line_no, col + 1));
+                        }
+                        if name.chars().next().is_some_and(|c| c.is_uppercase())
+                            && !components.contains(&name)
+                        {
+                            components.push(name);
+                        }
+                        // Skip past the tag so its attribute quotes are not read
+                        // as string delimiters.
+                        for _ in 0..rest[..=close].chars().count().saturating_sub(1) {
+                            chars.next();
                         }
                     }
                 }
@@ -232,14 +225,12 @@ fn scan(text: &str) -> (Vec<Diagnostic>, Vec<String>, usize) {
             format!("unterminated string starting with {quote}"),
         ));
     }
-    for (tag, line, column) in stack {
-        if let Tag::Open(name) = tag {
-            diagnostics.push(Diagnostic::error(
-                line,
-                column,
-                format!("unclosed component `<{name}>`"),
-            ));
-        }
+    for (name, line, column) in stack {
+        diagnostics.push(Diagnostic::error(
+            line,
+            column,
+            format!("unclosed component `<{name}>`"),
+        ));
     }
     for (line, column) in brace_depth {
         diagnostics.push(Diagnostic::error(line, column, "unclosed `{` expression"));

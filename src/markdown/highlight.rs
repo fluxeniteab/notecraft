@@ -281,69 +281,98 @@ fn markdown_line(lang: Lang, line: &str) -> Vec<Token> {
     tokens
 }
 
+/// End of the string literal that starts at `start` (inclusive of its quotes).
+///
+/// Scans by `char`, so a multi-byte character inside a literal can never leave
+/// the token on a non-boundary byte.
+fn string_end(line: &str, start: usize) -> usize {
+    let Some(quote) = line[start..].chars().next() else {
+        return start;
+    };
+    let mut escaped = false;
+    for (offset, ch) in line[start + quote.len_utf8()..].char_indices() {
+        let at = start + quote.len_utf8() + offset;
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match ch {
+            '\\' => escaped = true,
+            c if c == quote => return at + ch.len_utf8(),
+            _ => {}
+        }
+    }
+    line.len()
+}
+
+/// End of the identifier that starts at `start`.
+fn ident_end(line: &str, start: usize) -> usize {
+    for (offset, ch) in line[start..].char_indices() {
+        if !is_ident_char(ch) {
+            return start + offset;
+        }
+    }
+    line.len()
+}
+
 fn json_line(line: &str) -> Vec<Token> {
     let mut tokens = Vec::new();
-    let bytes = line.as_bytes();
     let mut i = 0;
-    while i < bytes.len() {
-        let c = bytes[i] as char;
-        if c == '"' {
-            let mut j = i + 1;
-            while j < bytes.len() {
-                if bytes[j] == b'\\' {
-                    j += 2;
-                    continue;
-                }
-                if bytes[j] == b'"' {
-                    break;
-                }
-                j += 1;
+    while i < line.len() {
+        let Some(c) = line[i..].chars().next() else {
+            break;
+        };
+        match c {
+            '"' => {
+                let end = string_end(line, i);
+                let is_key = line[end..].trim_start().starts_with(':');
+                push(
+                    &mut tokens,
+                    i,
+                    end,
+                    if is_key {
+                        Role::Attribute
+                    } else {
+                        Role::String
+                    },
+                    is_key,
+                );
+                i = end;
+                continue;
             }
-            let end = (j + 1).min(bytes.len());
-            let after = line[end..].trim_start();
-            let is_key = after.starts_with(':');
-            push(
-                &mut tokens,
-                i,
-                end,
-                if is_key {
-                    Role::Attribute
-                } else {
-                    Role::String
-                },
-                is_key,
-            );
-            i = end;
-            continue;
-        }
-        if c.is_ascii_digit() || (c == '-' && bytes.get(i + 1).is_some_and(|b| b.is_ascii_digit()))
-        {
-            let mut j = i + 1;
-            while j < bytes.len()
-                && matches!(bytes[j] as char, '0'..='9' | '.' | 'e' | 'E' | '+' | '-')
+            c if c.is_ascii_digit()
+                || (c == '-'
+                    && line[i + 1..]
+                        .chars()
+                        .next()
+                        .is_some_and(|d| d.is_ascii_digit())) =>
             {
-                j += 1;
+                let mut end = i;
+                for (offset, ch) in line[i..].char_indices() {
+                    if ch.is_ascii_digit() || matches!(ch, '.' | 'e' | 'E' | '+' | '-') {
+                        end = i + offset + ch.len_utf8();
+                    } else {
+                        break;
+                    }
+                }
+                push(&mut tokens, i, end, Role::Number, false);
+                i = end.max(i + 1);
+                continue;
             }
-            push(&mut tokens, i, j, Role::Number, false);
-            i = j;
-            continue;
-        }
-        if c.is_alphabetic() {
-            let mut j = i;
-            while j < bytes.len() && is_ident_char(bytes[j] as char) {
-                j += 1;
+            c if c.is_alphabetic() => {
+                let end = ident_end(line, i);
+                if matches!(&line[i..end], "true" | "false" | "null") {
+                    push(&mut tokens, i, end, Role::Keyword, false);
+                }
+                i = end.max(i + c.len_utf8());
+                continue;
             }
-            let word = &line[i..j];
-            if matches!(word, "true" | "false" | "null") {
-                push(&mut tokens, i, j, Role::Keyword, false);
+            '{' | '}' | '[' | ']' | ':' | ',' => {
+                push(&mut tokens, i, i + 1, Role::Punctuation, false);
             }
-            i = j;
-            continue;
+            _ => {}
         }
-        if matches!(c, '{' | '}' | '[' | ']' | ':' | ',') {
-            push(&mut tokens, i, i + 1, Role::Punctuation, false);
-        }
-        i += 1;
+        i += c.len_utf8();
     }
     tokens
 }
@@ -393,9 +422,11 @@ fn yaml_line(line: &str) -> Vec<Token> {
 fn html_line(line: &str) -> Vec<Token> {
     let mut tokens = Vec::new();
     let mut i = 0;
-    let bytes = line.as_bytes();
-    while i < bytes.len() {
-        match bytes[i] as char {
+    while i < line.len() {
+        let Some(c) = line[i..].chars().next() else {
+            break;
+        };
+        match c {
             '<' => {
                 let end = line[i..].find('>').map(|o| i + o + 1).unwrap_or(line.len());
                 push(&mut tokens, i, end, Role::Tag, false);
@@ -406,7 +437,7 @@ fn html_line(line: &str) -> Vec<Token> {
                 push(&mut tokens, i, end, Role::Mark, false);
                 i = end;
             }
-            _ => i += 1,
+            _ => i += c.len_utf8(),
         }
     }
     tokens
@@ -448,7 +479,6 @@ fn css_line(line: &str) -> Vec<Token> {
 
 fn code_line(line: &str) -> Vec<Token> {
     let mut tokens = Vec::new();
-    let bytes = line.as_bytes();
     let trimmed = line.trim_start();
     let leading = line.len() - trimmed.len();
 
@@ -458,59 +488,47 @@ fn code_line(line: &str) -> Vec<Token> {
     }
 
     let mut i = 0;
-    while i < bytes.len() {
-        let c = bytes[i] as char;
+    while i < line.len() {
+        let Some(c) = line[i..].chars().next() else {
+            break;
+        };
         // Line comment.
-        if c == '/' && bytes.get(i + 1) == Some(&b'/') {
+        if c == '/' && line[i + 1..].starts_with('/') {
             push(&mut tokens, i, line.len(), Role::Comment, false);
             break;
         }
         // Strings.
         if c == '"' || c == '\'' || c == '`' {
-            let quote = bytes[i];
-            let mut j = i + 1;
-            while j < bytes.len() {
-                if bytes[j] == b'\\' {
-                    j += 2;
-                    continue;
-                }
-                if bytes[j] == quote {
-                    j += 1;
-                    break;
-                }
-                j += 1;
-            }
-            let end = j.min(bytes.len());
+            let end = string_end(line, i);
             push(&mut tokens, i, end, Role::String, false);
             i = end;
             continue;
         }
         if c.is_ascii_digit() {
-            let mut j = i;
-            while j < bytes.len()
-                && matches!(bytes[j] as char, '0'..='9' | '.' | 'x' | 'X' | 'a'..='f' | 'A'..='F' | '_')
-            {
-                j += 1;
+            let mut end = i;
+            for (offset, ch) in line[i..].char_indices() {
+                if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_') {
+                    end = i + offset + ch.len_utf8();
+                } else {
+                    break;
+                }
             }
-            push(&mut tokens, i, j, Role::Number, false);
-            i = j;
+            push(&mut tokens, i, end, Role::Number, false);
+            i = end.max(i + 1);
             continue;
         }
         if c.is_alphabetic() || c == '_' || c == '$' {
-            let mut j = i;
-            while j < bytes.len() && is_ident_char(bytes[j] as char) {
-                j += 1;
-            }
-            let word = &line[i..j];
+            let end = ident_end(line, i);
+            let word = &line[i..end];
             if KEYWORDS.contains(&word) {
-                push(&mut tokens, i, j, Role::Keyword, true);
-            } else if j < bytes.len() && bytes[j] == b'(' {
-                push(&mut tokens, i, j, Role::Tag, false);
+                push(&mut tokens, i, end, Role::Keyword, true);
+            } else if line[end..].starts_with('(') {
+                push(&mut tokens, i, end, Role::Tag, false);
             }
-            i = j;
+            i = end.max(i + c.len_utf8());
             continue;
         }
-        i += 1;
+        i += c.len_utf8();
     }
     tokens
 }

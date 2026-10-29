@@ -54,7 +54,7 @@ impl JsonDoc {
             Err(err) => Self {
                 root: None,
                 error: Some(JsonError {
-                    message: strip_position(&err.to_string()),
+                    message: describe(&err),
                     line: err.line(),
                     column: err.column(),
                 }),
@@ -82,6 +82,20 @@ fn strip_position(message: &str) -> String {
         Some(idx) => message[..idx].to_string(),
         None => message.to_string(),
     }
+}
+
+/// Turn a `serde_json` error into a message that says what to do about it.
+///
+/// The parser refuses documents nested deeper than its recursion limit instead
+/// of risking a stack overflow. That is the correct failure mode, but "recursion
+/// limit exceeded" alone does not tell the reader that the file is intact and
+/// still editable.
+fn describe(err: &serde_json::Error) -> String {
+    let message = strip_position(&err.to_string());
+    if message.contains("recursion limit exceeded") {
+        return "nesting is deeper than 128 levels; the tree view is unavailable but the source is unchanged".into();
+    }
+    message
 }
 
 /// Re-indent a document. Invalid input is refused rather than rewritten.
@@ -390,17 +404,32 @@ mod tests {
             .any(|r| r.kind == NodeKind::String && r.preview.contains('é')));
     }
 
-    #[test]
-    fn deep_documents_do_not_panic() {
+    fn nested(depth: usize) -> String {
         let mut text = String::new();
-        for _ in 0..400 {
+        for _ in 0..depth {
             text.push('[');
         }
         text.push('1');
-        for _ in 0..400 {
+        for _ in 0..depth {
             text.push(']');
         }
-        let doc = JsonDoc::parse(&text);
-        assert!(doc.is_valid());
+        text
+    }
+
+    #[test]
+    fn moderately_nested_documents_parse() {
+        assert!(JsonDoc::parse(&nested(100)).is_valid());
+    }
+
+    #[test]
+    fn deep_documents_report_a_depth_error_instead_of_panicking() {
+        let doc = JsonDoc::parse(&nested(400));
+        assert!(doc.root.is_none());
+        let error = doc.error.expect("a depth error is reported");
+        assert!(
+            error.message.contains("deeper than"),
+            "unexpected message: {}",
+            error.message
+        );
     }
 }

@@ -225,10 +225,16 @@ impl Kind {
         }
     }
 
+    /// Classify a path.
+    ///
+    /// A file with no extension at all (`README`, `Makefile`) is plain text, not
+    /// an unknown format: it is perfectly readable and must not be offered a
+    /// Markdown preview or a validator it does not have.
     pub fn from_path(path: &str) -> Kind {
-        extension_of(path)
-            .as_deref()
-            .map_or(Kind::Unknown, kind_from_extension)
+        match extension_of(path) {
+            Some(ext) => kind_from_extension(&ext),
+            None => Kind::Text,
+        }
     }
 }
 

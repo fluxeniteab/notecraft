@@ -9,7 +9,12 @@ use std::collections::HashSet;
 /// A `[[target]]` or `[[target|label]]` reference.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Link {
+    /// The note reference without its `|label` or `#heading` annotation.
     pub target: String,
+    /// `[[target|label]]` keeps its label so a rename does not discard it.
+    pub label: Option<String>,
+    /// `[[target#heading]]` keeps the fragment for the same reason.
+    pub fragment: Option<String>,
     /// Byte range of the whole `[[...]]` token, for rewriting on rename.
     pub start: usize,
     pub end: usize,
@@ -38,10 +43,19 @@ pub fn wiki_links(text: &str) -> Vec<Link> {
         {
             if let Some(close) = text[index + 2..].find("]]") {
                 let inner = &text[index + 2..index + 2 + close];
-                let target = inner.split('|').next().unwrap_or("").trim().to_string();
+                let (reference, label) = match inner.split_once('|') {
+                    Some((reference, label)) => (reference.trim(), Some(label.trim().to_string())),
+                    None => (inner.trim(), None),
+                };
+                let (target, fragment) = match reference.split_once('#') {
+                    Some((target, fragment)) => (target.trim(), Some(fragment.trim().to_string())),
+                    None => (reference, None),
+                };
                 if !target.is_empty() && !target.contains('\n') {
                     links.push(Link {
-                        target,
+                        target: target.to_string(),
+                        label: label.filter(|l| !l.is_empty()),
+                        fragment: fragment.filter(|f| !f.is_empty()),
                         start: index,
                         end: index + 2 + close + 2,
                     });
@@ -72,9 +86,9 @@ pub fn rename_targets(text: &str, old: &str, new: &str) -> String {
         if cursor > link.start {
             continue;
         }
-        let matches = link.target == old
-            || link.target == old_stem
-            || link.target == stem(&link.target) && stem(&link.target) == old_stem;
+        // `[[Note]]`, `[[Note.md]]`, `[[folder/Note]]` and `[[Note#heading]]` all
+        // point at the same document; the label and heading survive the rename.
+        let matches = link.target == old || stem(&link.target) == old_stem;
         if !matches {
             continue;
         }
@@ -86,6 +100,14 @@ pub fn rename_targets(text: &str, old: &str, new: &str) -> String {
         };
         out.push_str("[[");
         out.push_str(&replacement_target);
+        if let Some(fragment) = &link.fragment {
+            out.push('#');
+            out.push_str(fragment);
+        }
+        if let Some(label) = &link.label {
+            out.push('|');
+            out.push_str(label);
+        }
         out.push_str("]]");
         cursor = link.end;
     }
@@ -143,19 +165,20 @@ pub fn tags(text: &str) -> Vec<String> {
             }
             if let Some(rest) = trimmed.strip_prefix("tags:") {
                 collecting_tags = true;
+                // `tags: one, two`, `tags: [one, two]` and `tags: "one"` are
+                // all written in the wild, so strip list brackets and quotes
+                // before deciding what the tag is.
                 for part in rest.split(',') {
-                    let tag = part.trim().trim_matches('"').trim_start_matches('#');
-                    if !tag.is_empty() {
-                        found.insert(tag.to_string());
+                    if let Some(tag) = clean_tag(part) {
+                        found.insert(tag);
                     }
                 }
                 continue;
             }
             if collecting_tags {
                 if let Some(item) = trimmed.strip_prefix('-') {
-                    let tag = item.trim().trim_matches('"').trim_start_matches('#');
-                    if !tag.is_empty() {
-                        found.insert(tag.to_string());
+                    if let Some(tag) = clean_tag(item) {
+                        found.insert(tag);
                     }
                     continue;
                 }
@@ -191,6 +214,16 @@ pub fn tags(text: &str) -> Vec<String> {
     let mut out: Vec<String> = found.into_iter().collect();
     out.sort();
     out
+}
+
+/// Normalise one frontmatter tag: drop list brackets, quotes and a leading `#`.
+fn clean_tag(raw: &str) -> Option<String> {
+    let tag = raw
+        .trim()
+        .trim_matches(|c: char| matches!(c, '[' | ']' | '{' | '}' | '"' | '\'' | ','))
+        .trim_start_matches('#')
+        .trim();
+    (!tag.is_empty()).then(|| tag.to_string())
 }
 
 /// Key/value pairs from YAML frontmatter, in document order.
@@ -239,8 +272,10 @@ mod tests {
     fn rename_updates_every_spelling() {
         let text = "[[Note]] [[Note|label]] [[Note#Heading]] [[Other]]";
         let renamed = rename_targets(text, "Note.md", "Renamed.md");
-        assert!(renamed.contains("[[Renamed]] [[Renamed]] [[Renamed#Heading]]"));
-        assert!(renamed.contains("[[Other]]"));
+        assert_eq!(
+            renamed, "[[Renamed]] [[Renamed|label]] [[Renamed#Heading]] [[Other]]",
+            "labels and headings must survive the rename"
+        );
     }
 
     #[test]

@@ -131,9 +131,18 @@ pub fn search(root: &Path, files: &[FileEntry], query: &str, filter: &Filter<'_>
         if !kind.capabilities().indexable || !filter.scope.matches(kind) {
             continue;
         }
-        if !filter.folder.is_empty() && !entry.path.starts_with(filter.folder.trim_end_matches('/'))
-        {
-            continue;
+        // A folder filter is a path boundary, not a string prefix: `notes`
+        // must not match `notes2/b.md`.
+        if !filter.folder.is_empty() {
+            let folder = filter.folder.trim_matches('/');
+            let inside = entry.path == folder
+                || entry
+                    .path
+                    .strip_prefix(folder)
+                    .is_some_and(|rest| rest.starts_with('/'));
+            if !inside {
+                continue;
+            }
         }
         let Ok(text) = crate::filesystem::read_text(root, &entry.path) else {
             continue;

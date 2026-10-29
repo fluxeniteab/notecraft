@@ -761,9 +761,15 @@ mod tests {
 
     #[test]
     fn stats_count_words_and_lines() {
+        // A trailing newline ends the last line; it does not open a new one.
         let s = stats("# Title\n\nhello world\n");
         assert_eq!(s.words, 3);
-        assert_eq!(s.lines, 4);
+        assert_eq!(s.lines, 3);
+        assert_eq!(s.chars, 21);
+
+        let s = stats("# Title\n\nhello world");
+        assert_eq!(s.lines, 3);
+        assert_eq!(stats("").lines, 1, "an empty document still has a line");
     }
 
     #[test]
@@ -772,7 +778,8 @@ mod tests {
         assert_eq!(headings.len(), 2);
         assert_eq!(headings[0].text, "One");
         assert_eq!(headings[1].level, 2);
-        assert_eq!(headings[1].line, 8);
+        // Lines are 1-based: "## Two" is the seventh line of the document.
+        assert_eq!(headings[1].line, 7);
     }
 
     #[test]
@@ -807,10 +814,20 @@ mod tests {
         )
     }
 
+    /// The section that covers the character at `needle`.
+    fn section_at<'a>(job: &'a LayoutJob, needle: &str) -> &'a egui::text::LayoutSection {
+        let index = job.text.find(needle).expect("needle is in the job");
+        job.sections
+            .iter()
+            .find(|section| section.byte_range.start.0 <= index && index < section.byte_range.end.0)
+            .expect("a section covers the needle")
+    }
+
     #[test]
     fn inline_styles_survive_into_the_job() {
+        let theme = theme();
         let job = build_job(
-            &theme(),
+            &theme,
             &block(vec![
                 Span {
                     text: "plain ".into(),
@@ -836,9 +853,17 @@ mod tests {
             Some(600.0),
             egui::Color32::WHITE,
         );
-        assert_eq!(job.sections.len(), 4);
         assert_eq!(job.text, "plain bold codegone");
-        assert!(job.sections[3].format.strikethrough.width > 0.0);
+        assert_eq!(
+            section_at(&job, "code").format.background,
+            theme.palette.code_bg,
+            "inline code keeps its background"
+        );
+        assert!(
+            section_at(&job, "gone").format.strikethrough.width > 0.0,
+            "strikethrough survives into the layout"
+        );
+        assert_eq!(section_at(&job, "plain").format.color, egui::Color32::WHITE);
     }
 
     #[test]

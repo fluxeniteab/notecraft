@@ -5,7 +5,20 @@
 //! is escaped, never trusted, because the export is meant to be a document, not
 //! an active page.
 
-use pulldown_cmark::{html, Options, Parser};
+use pulldown_cmark::{html, CowStr, Event, Options, Parser, Tag};
+
+/// Only these schemes may appear as an `href` in an exported page.
+fn safe_url(url: &str) -> bool {
+    let lower = url.trim().to_ascii_lowercase();
+    if lower.starts_with('#') || lower.starts_with('/') || lower.starts_with("./") {
+        return true;
+    }
+    lower.starts_with("http://")
+        || lower.starts_with("https://")
+        || lower.starts_with("mailto:")
+        || lower.starts_with("file:")
+        || !lower.contains(':') // a bare relative path such as `notes/a.md`
+}
 
 fn options() -> Options {
     Options::ENABLE_TABLES
@@ -32,7 +45,31 @@ fn escape_html(text: &str) -> String {
 
 /// A complete, self-contained HTML document with the app's reading typography.
 pub fn to_html(text: &str, title: &str) -> String {
-    let parser = Parser::new_ext(text, options());
+    // Raw HTML from the document is written as literal text, and link targets
+    // with a script-capable scheme are neutralised: the export is a document to
+    // read, not a page that inherits the document's privileges.
+    let parser = Parser::new_ext(text, options()).map(|event| match event {
+        Event::Html(raw) | Event::InlineHtml(raw) => Event::Text(CowStr::from(raw.to_string())),
+        Event::Start(Tag::Link {
+            link_type,
+            dest_url,
+            title,
+            id,
+        }) => {
+            let dest = if safe_url(&dest_url) {
+                dest_url
+            } else {
+                CowStr::Borrowed("#")
+            };
+            Event::Start(Tag::Link {
+                link_type,
+                dest_url: dest,
+                title,
+                id,
+            })
+        }
+        other => other,
+    });
     let mut body = String::new();
     html::push_html(&mut body, parser);
 
@@ -118,6 +155,13 @@ mod tests {
         assert!(!html.contains("<script>alert(1)</script>"));
         assert!(html.contains("&lt;script&gt;"));
         assert!(html.contains("<h1>Title</h1>"));
+    }
+
+    #[test]
+    fn script_capable_link_schemes_are_neutralised() {
+        let html = to_html("[x](javascript:alert(1)) and [y](notes/a.md)", "t");
+        assert!(!html.contains("javascript:"), "{html}");
+        assert!(html.contains("notes/a.md"), "relative links are kept");
     }
 
     #[test]

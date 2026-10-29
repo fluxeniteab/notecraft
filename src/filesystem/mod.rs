@@ -44,6 +44,16 @@ pub fn validate_rel(rel: &str) -> Result<PathBuf> {
     if normalised.starts_with('/') || normalised.contains('\0') {
         return Err(FsError::Path("invalid relative path".into()));
     }
+    // `Path::is_absolute` is platform-specific, so a Windows path such as
+    // `C:/Windows` is not "absolute" on Linux and would otherwise slip through.
+    // Reject the shapes explicitly instead of relying on the host's rules.
+    let bytes = normalised.as_bytes();
+    if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+        return Err(FsError::Path("absolute path not allowed".into()));
+    }
+    if normalised.starts_with("//") {
+        return Err(FsError::Path("absolute path not allowed".into()));
+    }
     let p = PathBuf::from(&normalised);
     if p.is_absolute() {
         return Err(FsError::Path("absolute path not allowed".into()));
