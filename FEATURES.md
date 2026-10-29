@@ -1,262 +1,140 @@
-# NoteCraft — Feature Checklist (honest status)
+# NoteCraft feature status
 
-Legend: [x] implemented & tested, [~] partial, [ ] planned
+This file is the honest checklist for the native (egui) build. A box is ticked
+only when the behaviour exists in this build and is covered by a test or was
+verified by hand in the running application. The Tauri build's status, module by
+module, is recorded in [deprecated/tauri-ui/MIGRATION.md](deprecated/tauri-ui/MIGRATION.md).
 
-## Document engine
-- [x] Own Rust renderer for Markdown (no third-party Markdown parser)
-- [x] Explicit document-format registry (`doc_types.rs` + `documentTypes.ts`): kind, editor language, preview mode, statistics mode and validator per extension
-- [x] Supported types: `.md`, `.mdx`, `.json`, `.yaml`/`.yml`, `.html`, `.css`, `.js`/`.jsx`, `.ts`/`.tsx`, `.txt`
-- [x] Creating a file keeps the extension the user typed (`page.mdx`, never `page.mdx.md`)
-- [x] Type-specific starter content, so a new `.json` file is valid JSON
-- [x] MDX: JSX component blocks, `{expressions}` and ESM lines surfaced, rest rendered
-- [x] MDX is never executed — no JSX runtime, no imports, no Tauri access from a document
-- [x] JSON: dedicated structured view with validation (line/column), collapsible tree, key/value filter and JSON Pointer copy
-- [x] JSON Format / Minify actions that parse first and refuse to touch invalid source
-- [x] JSON object keys displayed in document order (not alphabetised)
-- [x] Code-like documents preview as escaped source instead of being rendered as Markdown
-- [x] Editor language follows the file type (JSON, JavaScript/TypeScript, Markdown)
-- [x] Status bar reports the real type: words/chars for prose, lines and JSON validity for data
-- [x] Text index covers every supported type; wiki links/tags stay Markdown-only
-- [x] Nested lists, task lists, tables, callouts, footnotes, frontmatter card, wiki links
-- [x] Preview HTML escapes all user text and is sanitised again before insertion
-- [x] `render_document` command dispatches on the file extension; never silently falls back to Markdown
+## Documents
 
-## AI assistant (0.2.1)
-- [x] Provider presets: DeepSeek, Google Gemini, Mistral, OpenAI, OpenRouter, Groq
-- [x] Local runtimes: Ollama, LM Studio, llama.cpp (no API key)
-- [x] Inline SVG mark for every provider, in the panel and the setup grid
-- [x] Editable endpoint and model for any OpenAI-compatible gateway
-- [x] Keys stored in the app data folder, encrypted with the unlocked profile
-- [x] Requests executed in Rust; the webview CSP keeps the page offline
-- [x] Agent tools: list/read/search/create/rename/open notes, daily note, tasks, theme
-- [x] Edit proposals shown as a diff with Accept/Reject (never applied automatically)
-- [x] Eight-step tool loop cap and a new-conversation reset
-- [ ] Streaming token output (responses arrive complete)
+- [x] Create `.md`, `.mdx`, `.json`, `.yaml`, `.yml`, `.txt`, `.html`, `.css`,
+      `.js`, `.ts` through a type picker; the chosen extension is used verbatim.
+- [x] Open, edit, save, close and reopen any supported type.
+- [x] Multi-tab workspace with dirty markers, middle-click and `Ctrl W` close,
+      `Alt ←/→` navigation.
+- [x] Rename and delete-to-trash from the explorer context menu; open the vault
+      or settings folder in the OS file manager from Tools.
+- [x] Export the active document as HTML or plain text, and copy it as text.
+- [ ] Duplicate a file, and reveal a single file in the OS file manager.
+- [ ] Import an external file into the vault.
+- [x] Non-UTF-8 and oversized files are refused with a message instead of being
+      lossily re-encoded.
+- [x] Unsaved-change prompt before closing a tab or the window.
+- [x] External-modification detection: clean tabs reload, edited tabs show a
+      conflict banner with keep/reload choices.
+- [ ] Per-tab independent split panes (one editor/reading split per window).
+- [ ] Move files by drag and drop inside the explorer.
 
-## Plugin packages (0.2.1)
-- [x] Drag-and-drop or file-picker install of `plugin_xyz.zip`
-- [x] Manifest validation (`plugin.json`), id/folder sanitisation, zip-slip guard
-- [x] Optional `style.css` injected, optional `icon.png`/SVG shown in settings
-- [x] ES module entry with a typed app context (`api`, `notify`, read-only `store`)
-- [x] Permission-scoped API: `notes:read`, `notes:write`, `notes:create`, `notes:delete`, `links:read`, `ui:notify`, `editor:open`, `settings:read`
-- [x] Unknown permissions rejected at install time, so the list shown is complete
-- [x] Plugins never reach profile/password, AI keys, settings writes or plugin management
-- [x] Installed plugins start disabled; enabling is an explicit user action
-- [x] Enable/disable (styles removed), uninstall removes the folder
-- [x] TypeScript accepted when the compiled `.js` is shipped
-- [x] Documentation in `docs/PLUGINS.md`
-- [ ] True sandboxing (plugin modules still share the webview realm; documented as trusted code)
+## Markdown
 
-## Local accounts, encryption and distribution (0.2.0)
-- [x] Local profiles: one encrypted vault per username in the app data folder
-- [x] Password unlock with Argon2id key derivation; a verifier is stored, never the password
-- [x] Notes and history snapshots encrypted at rest (ChaCha20-Poly1305, fresh nonce per write)
-- [x] Legacy plaintext notes encrypted in place on first unlock
-- [x] Lock profile (Ctrl+Shift+L) drops the in-memory key
-- [x] Change password re-encrypts the vault under a new salt and key
-- [x] Delete profile (requires the password) removes the vault and registry entry
-- [ ] Password recovery (intentionally none: the password is the only key)
-- [x] Per-profile search index and database, so accounts never share documents
-- [x] CLI (notecraft-cli) with username/password auth and --json output
-- [x] In-app updater with signed artifacts and a per-platform latest.json
-- [x] VirusTotal scan of every installer in CI and in each release workflow
-- [x] macOS, Linux and Windows release workflows with artifact upload
+- [x] Headings, emphasis, strong, strikethrough, inline code, links, images,
+      block quotes, bullet and ordered lists (nested), task lists, fenced code
+      with syntax highlighting, tables, thematic breaks, frontmatter (hidden from
+      the body, surfaced in Properties).
+- [x] Wiki links `[[Note]]` and `[[Note#Heading]]` resolve against the vault.
+- [x] Outline with heading levels; word/character/reading-time statistics.
+- [x] Reading width, font family, size and line height are configurable.
+- [x] Editing includes a live markup overlay (headings scaled, emphasis marked,
+      code in mono, links accented).
+- [ ] True inline WYSIWYG replacement of syntax characters.
 
-## Core vault & notes
-- [x] Create/open/switch/close vaults (basic)
-- [x] Recent vaults
-- [x] File explorer (tree, search, context delete)
-- [x] Nested folders
-- [x] Create/rename/move/duplicate/delete notes and folders
-- [x] Safe deletion with trash
-- [x] Multi-tab editing
-- [x] Pin/close/reorder tabs (close; reorder store ready)
-- [~] Split panes (mode split in editor, not independent panes)
-- [x] Drag-and-drop notes into folders (explorer)
-- [x] Context menus (delete via right-click)
-- [x] Keyboard shortcuts (Ctrl+P, Ctrl+O, Ctrl+K, Ctrl+S, …)
-- [x] File-type icons
-- [x] Searchable file explorer
-- [x] Hidden-file/excluded-folder settings
-- [x] Configurable explorer sorting (name/modified via settings)
-- [x] External filesystem-change detection (notify watcher → explorer refresh + reload)
-- [x] Vault-level & app-level settings
-- [x] Session restoration (UI prefs)
-- [x] Recent files (recent vaults)
-- [x] File metadata display (modified time in views)
-- [~] Safe import/export
+## MDX
 
-## Editor
-- [x] Source mode
-- [x] Live-preview mode (CodeMirror decorations reveal Markdown syntax on the active line)
-- [x] Reading mode (sanitized HTML)
-- [x] Split editing/preview
-- [x] Syntax highlighting (CM6)
-- [x] Headings/outline
-- [x] Lists, tasks, tables (markdown lang)
-- [x] Blockquotes, callouts (rendered)
-- [x] Fenced code blocks
-- [x] Inline code
-- [x] Links and images
-- [x] Footnotes (pulldown-cmark)
-- [x] Frontmatter editing (raw)
-- [x] Tags/properties integration
-- [x] Math (KaTeX rendered in preview)
-- [x] Mermaid diagrams (rendered in preview, lazy-loaded)
-- [x] Find/replace (CM6 search)
-- [x] Folding (CM6)
-- [x] Word/char/reading-time stats (words)
-- [x] Autosave + dirty tracking
-- [x] Conflict protection (external edits block/replace saves with a toast)
-- [x] Configurable typography (settings)
-- [x] Distraction-free focus mode (toolbar toggle)
+- [x] Dedicated document type with JSX tags, attributes and `{expressions}`
+      highlighted as inert source.
+- [x] Structural diagnostics with line and column: unbalanced braces, unclosed
+      or mismatched components, ESM import/export, raw `<script>`.
+- [x] Markdown around components still renders; component bodies are preserved
+      verbatim in the source and shown as chips in the preview.
+- [x] Editing and saving always work, with or without diagnostics.
+- [x] Execution is disabled by default and there is no runtime to enable: the
+      banner says document code is not run.
+- [ ] Compilation through a real MDX compiler (no line-accurate JSX offset
+      mapping; diagnostics are structural heuristics, not a parse tree).
 
-## Links & graph
-- [x] Wiki links + markdown links
-- [x] Links to headings/blocks (parsed)
-- [x] Backlinks
-- [x] Outgoing links
-- [x] Unresolved links
-- [x] Unlinked mentions (scan for plain-text references, insert link)
-- [x] Link rename propagation (impact preview + apply across vault)
-- [x] Global graph (Sigma)
-- [~] Local graph (backend scope, no UI toggle yet)
-- [~] Graph filtering (backend filters, limited UI)
-- [x] Graph zoom/pan/select
-- [x] Incremental graph updates (rebuild on link rebuild)
+## JSON
 
-## Canvas
-- [x] Infinite workspace (React Flow)
-- [x] Pan/zoom/select/drag/connect
-- [x] Node types (default cards)
-- [x] Multi-select/grouping (React Flow)
-- [x] Undo/redo (React Flow)
-- [x] Minimap, fit-to-content
-- [x] Copy/paste (React Flow)
-- [x] Save/restore (file)
-- [ ] Link node to note (not yet)
+- [x] `serde_json` validation with byte offset, line and column of the first
+      error.
+- [x] Collapsible tree that keeps document key order, shows types, and handles
+      both objects and arrays.
+- [x] Key/value filtering, expand all, collapse all, copy JSON Pointer (RFC 6901)
+      from the tree and from the cursor.
+- [x] Format (2/4 spaces or tab) and Minify, disabled while the document is
+      invalid so a broken file is never rewritten.
+- [x] Status bar reports valid/invalid with the error position.
+- [x] Large documents are limited to a bounded number of tree nodes so the UI
+      stays responsive; the source view is unlimited.
+- [x] No evaluation of JSON values anywhere.
+- [ ] Optional validation against a user-selected JSON Schema.
+- [ ] Direct editing inside the tree view (the tree is read-only by design).
 
-## Tags, properties, templates, views
-- [x] Tags (parsed, stored)
-- [x] Nested tags (grouped under top-level parent in the tags panel)
-- [x] Tag rename (rewrites occurrences, rebuilds index)
-- [x] YAML frontmatter parse/edit (raw)
-- [x] Typed properties (metadata)
-- [~] Property views/bulk (shown in collections; no bulk editor)
-- [x] Templates (list/render/vars)
-- [x] Template folders
-- [x] New-note/daily templates (settings-driven)
-- [x] Template variables
-- [x] Saved searches (save/reuse/delete from the search panel)
-- [x] Dynamic collections (folder/tag/property queries stored in db)
-- [x] Table/list/kanban/calendar views (collections; vault files stay source of truth)
+## YAML
 
-## Search
-- [x] Full-text (Tantivy)
-- [x] Incremental indexing (note saves update the index; cargo check/test green in CI)
-- [x] Snippets/highlighting
-- [x] Search-as-you-type (UI manual)
-- [x] Filters (folder + tag in the UI, folder/tag in backend)
-- [x] Operators (Tantivy query parser)
-- [x] Exact phrase (query parser)
-- [x] Boolean/exclusion (query parser)
-- [x] Filename search (title field)
-- [x] Saved queries
-- [x] Search history (recorded on search, shown as recent searches)
-- [x] Rebuild index
-- [x] Index status
-- [x] Excluded folders (settings UI)
-- [ ] Semantic search (disabled by default, not implemented)
+- [x] `serde_yaml` validation with line/column, shown in the status bar.
+- [x] Monospace editing with line numbers.
+- [ ] Structured tree view for YAML.
 
-## History & recovery
-- [x] Automatic snapshots (manual trigger)
-- [x] Configurable retention
-- [x] Named checkpoints (label)
-- [x] Timeline/list (History panel)
-- [x] Diff
-- [x] Restore
-- [x] Recover selected content (insert snapshot lines into the editor)
-- [x] Trash recovery
-- [x] Interrupted write recovery (atomic)
-- [x] Tests (rust unit suite green in GitHub CI)
+## Workspace and shell
 
-## Workspaces & productivity
-- [x] Saved workspaces (db)
-- [~] Panel layout (basic)
-- [x] Command palette
-- [x] Quick switcher
-- [x] Outline/backlinks/properties/search/tags/tasks/history/automation panels
-- [x] Task panel (open/all/done filters; note content is the source of truth)
-- [x] Daily notes (settings folder/template, palette + shortcut)
-- [x] Quick capture (append timestamped bullets to a capture note, Ctrl+Shift+N)
-- [~] Task queries/due (stored; due-date filter not in UI)
-- [ ] Writing goals/timer
-- [x] Distraction-free focus mode
-- [x] Status bar
+- [x] Native-style menu bar: File, Edit, Format, View, Insert, Navigate, Tools,
+      Plugins, Help — every item is wired to an action.
+- [x] Native window decorations, minimum size, DPI scaling handled by eframe.
+- [x] Vault switcher with recent vaults, explorer with folders, filters and
+      sorting by name or modification time.
+- [x] Collapsible sidebar and context panel, both remembered across restarts.
+- [x] Command palette (`Ctrl K`) over files and commands; `Ctrl P` opens the
+      command-only list.
+- [x] Settings dialog: theme (dark/light/system time of day), accent colour,
+      editor font, size, line height, reading width, autosave interval, editor
+      line numbers, word wrap, reduced motion.
+- [x] Session restore: open tabs, active tab, scroll position and panel sizes.
+- [x] App settings persist atomically in the platform config directory
+      (`%APPDATA%/NoteCraft/settings.json`); the legacy JSON shape still loads.
+- [ ] Per-vault settings override (all settings are application-wide).
+- [x] Toasts for save, export, trash and error feedback.
+- [ ] Custom keyboard-shortcut remapping.
+- [ ] Localization of UI strings.
 
-## Themes & customization
-- [x] Two themes only: grayscale dark and warm-white light (legacy system theme migrates to dark)
-- [x] Flat, code-editor-like chrome: 1px borders, neutral surfaces, quiet blue accent
-- [x] Accent color
-- [x] CSS variables
-- [x] Editor typography settings
-- [x] Reading width
-- [x] Reduced motion (settings)
-- [x] Theme import/export
-- [ ] Keyboard shortcut customization
-- [ ] Per-workspace settings
+## Search and linking
 
-## Plugins
-- [x] Manifest model
-- [x] Registry (db)
-- [x] Enable/disable/uninstall
-- [x] Permissions (stored)
-- [x] Example plugin (docs/examples/plugin-example)
-- [x] API docs (docs/PLUGIN_API.md)
-- [x] Marketplace interface (shipped catalog in Settings; embedded fallback for packaged builds)
+- [x] Vault-wide search with type scopes (All, Prose, Data, Code), snippets
+      around the match, and ranking by title match then body match.
+- [x] Tag extraction and a tag list; property (frontmatter) table.
+- [x] Backlinks and outgoing links per note, unresolved links listed separately.
+- [x] Title-aware wiki link resolution.
+- [ ] Persisted on-disk search index (currently a scan per query).
+- [ ] Rename propagation across the vault with a preview (link rewriting exists
+      for the renamed file's own links only).
 
-## Automation
-- [x] Rule model (db)
-- [x] Save/delete/list
-- [x] Dry-run preview
-- [~] Triggers/conditions/actions engine (manual run + property/move/template actions)
-- [x] Loop detection/limits (execution counter)
+## History and data safety
 
-## Sync
-- [x] Status interface
-- [x] Local-only
-- [x] Folder provider (mirror to a folder you control; push/pull; conflicts reported, never overwritten)
-- [ ] Remote/cloud provider (deliberately deferred until conflict handling proves dependable)
-
-## Import/export
-- [x] Import vault (copy + broken link report)
-- [x] Backup (zip)
-- [x] Restore backup (zip)
-- [x] Export Markdown file (OS save dialog)
-- [x] Export standalone HTML file (styled, offline)
-- [x] PDF via the system browser print dialog (offline)
-- [x] Export/import settings JSON through a real file write
+- [x] Bounded per-note history snapshots under `.notecraft/history`, deduplicated
+      by content hash, restorable from the History section.
+- [x] Trash folder instead of permanent deletion; restore from the toast or the
+      folder itself.
+- [x] Atomic writes (temp file + rename) for every save and export.
+- [x] `.notecraft/` is excluded from the explorer, search and indexing.
+- [ ] Compression or pruning policy UI for history.
+- [ ] Encrypted vaults (dropped in this build — see Security).
 
 ## Security
-- [x] Path validation
-- [x] Strict capabilities
-- [x] CSP
-- [x] Encrypted vault interface (password verifier + crypto helper)
-- [x] No telemetry by default
 
-## Accessibility/i18n
-- [x] Keyboard nav (basic)
-- [x] Focus (basic)
-- [x] Reduced motion
-- [ ] i18n string extraction
-- [ ] Screen-reader labels (partial)
+- [x] Vault-relative path validation with `..`, absolute path and NUL rejection,
+      plus a canonicalise check to block symlink escapes.
+- [x] No telemetry, no network requests, no account.
+- [x] MDX/HTML/JSON content is never executed or evaluated.
+- [x] Only `http`/`https`/`mailto` links are opened externally.
+- [x] Plugin code is not loaded at all; the Plugins menu says so rather than
+      offering a fake sandbox.
+- [ ] Encrypted vaults with Argon2id + ChaCha20-Poly1305 (was in the Tauri build;
+      not ported, so old encrypted profiles cannot be opened by this build).
+- [ ] Signed update verification (no updater in this build).
 
-## Testing
-- [x] Rust unit tests (vault, markdown, metadata, graph, links, settings)
-- [x] Frontend tests (appStore)
-- [ ] Integration/e2e (not yet)
+## Not ported
 
-## Build/CI
-- [x] Bun frontend
-- [x] GitHub Actions CI
-- [x] Tauri build (bundle disabled)
+AI assistant, agent tools and diff proposals; local AI runtimes; the `notecraft`
+CLI; third-party plugin execution; graph view and canvas; automation rules;
+Kanban/table/calendar database views; sync and conflict-resolution UI; command
+palette AI actions. Each is listed here rather than presented as a placeholder
+button, and the archived implementation stays available under `deprecated/`.

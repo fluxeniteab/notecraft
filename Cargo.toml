@@ -1,0 +1,40 @@
+[package]
+name = "notecraft"
+version = "0.3.0"
+edition = "2021"
+rust-version = "1.85"
+description = "NoteCraft — native Markdown/MDX/JSON knowledge base"
+authors = ["Fluxenite"]
+license = "GPL-3.0-only"
+default-run = "notecraft"
+
+[dependencies]
+eframe = { version = "0.37", default-features = false, features = [
+    "glow",
+    "default_fonts",
+    "accesskit",
+    "clipboard",
+    "links",
+    "x11",
+    "wayland",
+] }
+egui = "0.37"
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+serde = { version = "1", features = ["derive"] }
+# `preserve_order` keeps JSON object keys in document order: a structured viewer
+# must show the file the user is editing, not an alphabetised version of it.
+serde_json = { version = "1", features = ["preserve_order"] }
+serde_yaml = "0.9"
+thiserror = "2"
+chrono = { version = "0.4", features = ["serde"] }
+walkdir = "2"
+dirs = "6"
+rfd = "0.17"
+log = "0.4"
+env_logger = "0.11"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

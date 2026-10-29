@@ -1,80 +1,147 @@
-# Data Formats
+# Data formats
 
-NoteCraft gives every supported file type an explicit capability record
-(`src-tauri/src/doc_types.rs`, mirrored in `src/lib/documentTypes.ts`): editor
-language, preview mode, statistics mode, validator, and whether the file is
-indexed or can hold wiki links.
+## Document registry
 
-| Extension | Kind | Preview | Status bar | Validated | Wiki links |
-| --- | --- | --- | --- | --- | --- |
-| `.md`, `.markdown` | Markdown | rendered | words / chars | — | yes |
-| `.mdx` | MDX | rendered | words / chars | MDX markers | yes |
-| `.json` | JSON | structured tree | lines / validity | yes (serde_json) | no |
-| `.yaml`, `.yml` | YAML | escaped source | lines | — | no |
-| `.html`, `.htm` | HTML | escaped source | lines | — | no |
-| `.css` | CSS | escaped source | lines | — | no |
-| `.js`, `.mjs`, `.cjs`, `.jsx` | JavaScript | escaped source | lines | — | no |
-| `.ts`, `.mts`, `.cts`, `.tsx` | TypeScript | escaped source | lines | — | no |
-| `.txt` | plain text | escaped source | lines | — | no |
+Every document kind is one `Capabilities` record in `src/documents/mod.rs`. The UI
+asks this table what a file is; nothing guesses from the text. Adding a type
+means adding a record and its arm in `Kind::capabilities`, `Kind::from_path` and
+`export_extension`.
 
-Unknown extensions are kept as ordinary files. They are never reinterpreted as
-Markdown, never rewritten, and never added to the text index.
+| Field | Meaning |
+| --- | --- |
+| `syntax` | highlighting dialect for the editor and fenced code |
+| `stats` | `Prose` (words/chars), `Data` (lines/chars), `Code` (lines) |
+| `validator` | `Json`, `Yaml` or `None` |
+| `mono` | monospace editor with a line-number gutter |
+| `preview` | a rendered reading view is meaningful |
+| `indexable` | content participates in vault search |
+| `metadata` | frontmatter is scanned for tags and properties |
 
-## Creating files
+| Extension | Kind | Syntax | Stats | Validator | Mono | Preview | Indexed |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `.md`, `.markdown` | Markdown | Markdown | prose | – | no | yes | yes |
+| `.mdx` | MDX | MDX | prose | MDX analysis | no | yes | yes |
+| `.json` | JSON | JSON | data | `serde_json` | yes | tree | yes |
+| `.yaml`, `.yml` | YAML | YAML | data | `serde_yaml` | yes | source | yes |
+| `.txt` | Text | plain | prose | – | no | source | yes |
+| `.html`, `.htm` | HTML | HTML | code | – | yes | source | yes |
+| `.css` | CSS | CSS | code | – | yes | source | yes |
+| `.js`, `.jsx` | JavaScript | code | code | – | yes | source | yes |
+| `.ts`, `.tsx` | TypeScript | code | code | – | yes | source | yes |
+| anything else | Unknown | plain | code | – | yes | source | no |
 
-A new file's extension decides its content:
+Unknown files are opened as plain text, keep their bytes, and are never rewritten
+into a supported format.
 
-- `.md` / `.mdx` → `# <name>`
-- `.json` → `{ "title": "<name>" }` (valid JSON)
-- `.yaml` → `title: <name>`
-- `.html`, `.css`, `.js`, `.ts` → minimal file with the name in a comment
-- `.txt` → empty
+## Vault layout
 
-Typing `page.mdx` creates `page.mdx`, not `page.mdx.md`.
+A vault is any folder. NoteCraft adds one hidden directory:
 
-## JSON documents
-
-JSON is data, not a programming language: parsing, viewing and formatting never
-execute anything.
-
-- Validation uses `serde_json`, so errors report a line and column.
-- The JSON tab shows a collapsible tree with keys, types and values, a filter for
-  keys/values, and a **Copy JSON Pointer** action per node (RFC 6901).
-- **Format** pretty-prints with 2 spaces; **Minify** collapses to one line. Both
-  parse first and refuse to touch invalid source.
-- The preview tree is capped (20 000 nodes, depth 64) so a pathological file
-  cannot freeze the window. The document itself is unchanged.
-
-## MDX documents
-
-MDX is edited as source and rendered non-executing. JSX component blocks render
-as labelled cards, `{expressions}` and ESM lines are surfaced rather than
-dropped, and Markdown around them still renders. **No MDX is executed**: there is
-no JSX runtime, no import resolution and no access to Tauri commands from a
-document. This is a deliberate security boundary, not a missing feature.
-
-## Note (.md)
-
-Markdown with optional YAML frontmatter delimited by `---`.
-
-## Canvas (.canvas.json)
-
-```json
-{ "version": 1, "nodes": [...], "edges": [...] }
+```
+<vault>/
+  notes/…                   the user's files, untouched
+  .notecraft/
+    trash/20261028-141233-old.md     deleted files, timestamped
+    history/notes__plan.md.20261028-141233-412.snap
 ```
 
-## Collection config
+- **Trash names** are `<yyyyMMdd-HHmmss>-<original name>`. Nothing in trash is
+  read by the explorer, search or links.
+- **History names** are `<path with / → __>.<yyyyMMdd-HHmmss-mmm>.snap`. A
+  snapshot is a byte copy of the file before a save that replaces it, pruned to
+  `snapshot_retention` entries per document (`settings.json`, default 50).
+- `.notecraft` is in `excluded_folders` by default.
 
-Stored as `.notecraft/collections.json` in vault or app data (versioned).
+## Application data
 
-## Settings
+`settings.json` and `session.json` live in `dirs::data_dir()/NoteCraft`
+(`%APPDATA%\NoteCraft` on Windows, `~/.local/share/NoteCraft` on Linux,
+`~/Library/Application Support/NoteCraft` on macOS). Both are written via a
+`.tmp` file and a rename.
 
-`settings.json` in app data dir.
+### settings.json
 
-## Snapshot
+Field names match the Tauri build so an existing file loads unchanged; unknown
+fields are ignored and missing fields take defaults.
 
-Stored under app data `snapshots/<uuid>/content.md` with DB metadata row.
+```json
+{
+  "theme": "dark",                 // "dark" | "light" | "system" | anything → dark
+  "accent": "#4f86f7",
+  "editor_font_size": 15,
+  "editor_line_height": 1.75,
+  "editor_font_family": "Inter, system-ui, sans-serif",
+  "reading_width": 760,
+  "autosave_ms": 800,
+  "autosave_enabled": true,
+  "snapshot_interval_min": 5,
+  "snapshot_retention": 50,
+  "excluded_folders": [".git", "node_modules", ".notecraft"],
+  "hidden_files": false,
+  "reduced_motion": false,
+  "telemetry_opt_in": false,
+  "semantic_search_enabled": false,
+  "explorer_sort": "name",         // "name" | "modified"
+  "explorer_group_dirs": true,
+  "shortcuts": {},
+  "show_line_numbers": true,
+  "wrap_code": false,
+  "reopen_last_session": true,
+  "preview_width": 0.5
+}
+```
 
-## Search index
+`telemetry_opt_in` and `semantic_search_enabled` exist for file compatibility
+only: no telemetry is collected and no embedding provider is used by this build.
 
-Tantivy index in app data `search_index/`. Rebuildable from vault.
+### session.json
+
+```json
+{
+  "vault": "C:\\Users\\me\\Notes",
+  "tabs": ["inbox.md", "data/config.json"],
+  "active": "inbox.md",
+  "left_visible": true,
+  "right_visible": false,
+  "left_width": 248.0,
+  "right_width": 292.0,
+  "recent_vaults": ["C:\\Users\\me\\Notes"]
+}
+```
+
+Paths are stored as `/`-separated vault-relative strings. A tab whose file no
+longer exists is dropped on load instead of showing an error.
+
+## Export
+
+`File → Export…` writes either:
+
+- **HTML** — one self-contained page. Markdown is rendered by `markdown::render_html`
+  (headings, lists, tables, code, quotes, task states); everything else is escaped
+  source in a `<pre>` block, so exporting a JSON or MDX file cannot produce an
+  active page. The filename gets the extension the user typed.
+- **Plain text** — Markdown syntax stripped, JSON left as source.
+
+`Edit → Copy document as text` puts the plain-text rendering on the clipboard.
+
+## JSON conventions
+
+- Object key order is preserved (`serde_json` with `preserve_order`).
+- Pointers use **RFC 6901** (`/items/0/name`, `~0` for `~`, `~1` for `/`), shown
+  in the tree's context menu and the status bar. JSONPath is not implemented.
+- Formatting options: 2 spaces, 4 spaces or a tab; Minify removes all whitespace
+  outside strings.
+- Format and Minify are disabled while the document does not parse, so invalid
+  source is never rewritten.
+- The tree is read-only and capped at 20,000 nodes; the source editor is not.
+
+## MDX conventions
+
+MDX is stored exactly as typed. Analysis is structural:
+
+- braces must balance outside strings and JSX attribute strings;
+- component tags must nest correctly, with open/close locations reported;
+- ESM (`import`/`export`) and `<script>` at the start of a line are flagged;
+
+Line and column numbers are 1-based. Nothing is compiled and nothing executes,
+so an MDX file always saves and reopens byte-for-byte.

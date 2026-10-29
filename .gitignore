@@ -1,7 +1,8 @@
 node_modules/
 dist/
-src-tauri/target/
-src-tauri/gen/
+target/
+deprecated/**/node_modules/
+deprecated/**/target/
 *.log
 .DS_Store
 Thumbs.db

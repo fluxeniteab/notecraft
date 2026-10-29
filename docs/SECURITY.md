@@ -1,90 +1,101 @@
 # Security model
 
-NoteCraft is local-first. There is no server to send notes to, and no account that lives anywhere
-but this machine.
-
-## Profiles
-
-Each profile is a directory:
-
-```
-%APPDATA%\NoteCraft\                       (Windows; similar per-OS data dir elsewhere)
-├── profiles.json                          profile names, salts, verifiers
-└── profiles\<uuid>\
-    ├── vault\                             encrypted notes
-    ├── notecraft.db                       links, tags, tasks, snapshots index
-    └── index\                             search index
-```
-
-Two profiles never share a vault, database or search index.
-
-## Key derivation
-
-| Step | Detail |
-| --- | --- |
-| Salt | 16 random bytes per profile, stored in `profiles.json` |
-| KDF | Argon2id, `m = 19 MiB`, `t = 2`, `p = 1`, 32-byte output |
-| Password storage | none — only a verifier blob is stored |
-
-The verifier is the AEAD encryption of `notecraft-profile:<profile id>` under the derived key. A
-wrong password fails to decrypt it, so the app refuses to open the vault before reading any note.
-
-## Note encryption
-
-Every note is stored in a small container:
-
-```
-"NCV1" | nonce (12 bytes) | ChaCha20-Poly1305 ciphertext + tag
-```
-
-- A fresh random nonce is generated for every write.
-- Writes are atomic: write to a temporary file, `fsync`, then rename over the target.
-- A tampered or truncated file fails authentication and is reported as an error instead of being
-  shown as if it were valid.
-- Files without the `NCV1` magic are treated as legacy plaintext and encrypted in place the first
-  time the profile is unlocked.
-
-History snapshots are written through the same encrypted path.
-
-## What is encrypted
-
-| Data | Encrypted |
-| --- | --- |
-| Notes (`.md`) | yes |
-| History snapshots | yes |
-| Search index | no — derived data, stored inside the profile directory |
-| `notecraft.db` (links, tags, tasks, snapshots index) | no — metadata only, no note bodies |
-| `profiles.json` | no — names, salt, verifier |
-| Settings | no |
-
-The search index contains tokenised note text. It lives in the profile directory so file system
-permissions match the vault, but it is not itself encrypted. If that is unacceptable, disable
-search for the profile or move the data directory to an encrypted volume.
+NoteCraft is a local-first native application. It opens no network sockets, has
+no account, sends no telemetry, and contains no script host. This document
+describes the boundaries the code actually enforces, and what it does not.
 
 ## Threat model
 
-Protects against:
+What matters here:
 
-- Someone reading the vault files, a backup, or a stolen disk image without the password.
-- Another local profile in the same app installation.
-- A tampered note file (AEAD authentication failure is surfaced, not ignored).
-- A tampered application update (updates are signed; the updater rejects unsigned payloads).
+1. A malicious *document* (Markdown, MDX, JSON, HTML) must not be able to run
+   code, reach the network, or touch files outside the vault.
+2. A malicious *vault layout* (paths, symlinks, enormous files) must not escape
+   the vault or corrupt other files.
+3. A malformed file must never cost the user their content.
 
-Does not protect against:
+Not in scope: protecting the vault from someone with filesystem access to the
+vault folder. Notes are stored as plain files; anyone who can read the folder can
+read the notes. This build has **no encryption** (see below).
 
-- Malware running as your user while the vault is unlocked. The key is in process memory.
-- Shoulder surfing, keyloggers, or a compromised OS.
-- An attacker who knows your password.
-- Forensic recovery of deleted plaintext that predates encryption.
+## Filesystem boundary
 
-## Operational notes
+Every filesystem call takes a vault-relative path and passes it through
+`filesystem::validate_rel` first:
 
-- Lock the app (`Ctrl+Shift+L`) before leaving a shared machine.
-- The password cannot be reset. Losing it means losing the notes in that profile.
-- Passwords shorter than 8 characters are rejected.
-- Changing the password re-encrypts every note under a new salt and key; if the process is
-  interrupted, the old password still opens the vault because the registry is updated last.
+- absolute paths are rejected (`C:\…`, `/…`, `\\server\…`);
+- `..` segments are rejected, including mixed and repeated ones;
+- NUL bytes are rejected.
+
+`filesystem::join_safe` then joins the relative path to the vault root and
+canonicalises both ends, so a symlink or junction pointing outside the vault is
+refused even though its lexically-normalised path looks fine.
+
+Writes are atomic: content goes to a sibling `*.nc-tmp` file and is renamed over
+the target. A crash mid-save leaves the previous version intact. Reads reject
+content that is not valid UTF-8 rather than re-encoding it, so a binary file
+renamed to `.md` cannot be mangled.
+
+Deletion is not deletion: `trash` moves the file to `.notecraft/trash/` with a
+timestamped name.
+
+`.notecraft/` is excluded from the explorer, search and link index, so trash and
+history never appear as notes.
+
+## Document execution
+
+- **MDX** is parsed for structure only. There is no JavaScript runtime, no
+  import mechanism, and no way for a document to call application code. JSX tags
+  and `{expressions}` are displayed as inert text, and `mdx::analyse` reports
+  unbalanced braces, unclosed or mismatched components, ESM statements and
+  `<script>` as diagnostics. The reading view says that document code is not run.
+- **JSON** values are rendered as text and never evaluated. Tree rows escape
+  strings (control characters, quotes) before display.
+- **HTML** files are shown as source. The HTML *export* escapes document text;
+  the output is a file the user chooses to open elsewhere, not something
+  NoteCraft loads.
+- **Links.** Only `http:`, `https:` and `mailto:` are handed to the OS handler.
+  Everything else — `file:`, `javascript:`, arbitrary schemes — is ignored.
+
+## Plugins
+
+The Tauri build executed plugin JavaScript inside the webview with a
+permission-scoped API. The native build has no JavaScript engine, so plugin
+execution does not exist: nothing is loaded, and **Plugins → Plugin status**
+states that instead of offering an install path that would do nothing. The
+archived plugin documentation is in `deprecated/tauri-ui/docs/`.
+
+## Encryption
+
+This build does not implement encrypted vaults. The Tauri build's Argon2id +
+ChaCha20-Poly1305 profiles cannot be opened here, and no key material, salt or
+verifier is stored or generated by the native application. There is no password
+recovery, and there is no code path that could recover a key from a verifier.
+
+Because there is no encryption, no key is ever held in memory, so there is
+nothing to zeroise. The claim the previous build could not honestly make — "keys
+are erased from memory" — is simply not made here.
+
+## Data directory
+
+`settings.json` and `session.json` live in the platform data directory
+(`%APPDATA%/NoteCraft` on Windows). They contain UI preferences, the active
+vault path and recent vault paths: **never note content, never credentials**.
+Both are written atomically.
+
+`session.json` also records which tabs were open. Closing a vault or quitting
+with unsaved edits prompts before discarding.
+
+## Supply chain
+
+Dependencies are declared in `Cargo.toml` and pinned by `Cargo.lock`, which the
+release workflow builds with `--locked`. No dependency performs network I/O at
+runtime. There is no auto-updater, so there is no update channel to compromise;
+a new version is a manual download.
 
 ## Reporting
 
-Open an issue for anything that contradicts this document. Please do not attach real notes.
+Report a vulnerability privately through GitHub's security advisory page rather
+than a public issue, and include the file type and steps to reproduce. Anything
+that lets a document execute code, read outside the vault, or overwrite a file
+without confirmation is treated as a security bug.
