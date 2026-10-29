@@ -1409,6 +1409,50 @@ pub fn save_text_file(dest: String, content: String) -> AppResult<()> {
     crate::import_export::write_file(&dest, &content)
 }
 
+// ---------- AI ----------
+#[tauri::command]
+pub fn ai_providers() -> Vec<crate::ai::ProviderPreset> {
+    crate::ai::presets()
+}
+
+#[tauri::command]
+pub fn ai_load_config() -> crate::ai::AiConfig {
+    crate::ai::load_config()
+}
+
+#[tauri::command]
+pub fn ai_save_config(config: crate::ai::AiConfig) -> AppResult<()> {
+    crate::ai::save_config(&config)
+}
+
+/// One conversation turn. Runs in Rust so the webview CSP stays closed and
+/// API keys never reach the page.
+#[tauri::command]
+pub async fn ai_chat(
+    config: crate::ai::AiConfig,
+    system: String,
+    messages: Vec<crate::ai::ChatMessage>,
+) -> AppResult<String> {
+    crate::ai::chat(&config, &system, &messages).await
+}
+
+// ---------- plugin packages ----------
+#[tauri::command]
+pub fn import_plugin_zip(
+    path: String,
+    state: State<AppState>,
+) -> AppResult<crate::plugins::PluginInfo> {
+    crate::plugins::import_zip(&path, &state)
+}
+
+#[tauri::command]
+pub fn plugin_package(
+    id: String,
+    state: State<AppState>,
+) -> AppResult<crate::plugins::PluginPackage> {
+    crate::plugins::package(&state, &id)
+}
+
 #[tauri::command]
 pub fn backup_vault(dest: String, state: State<AppState>) -> AppResult<()> {
     crate::import_export::backup(&state, &dest)

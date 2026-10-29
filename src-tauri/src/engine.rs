@@ -1662,7 +1662,9 @@ mod tests {
     #[test]
     fn javascript_urls_are_dropped() {
         let html = render("[click](javascript:alert(1))", Dialect::Markdown);
-        assert!(!html.contains("javascript:"));
+        // The link is not created; the source is shown as inert text instead.
+        assert!(!html.contains("href=\"javascript:"));
+        assert!(html.contains("[click](javascript:alert(1))"));
     }
 
     #[test]

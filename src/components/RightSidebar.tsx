@@ -11,6 +11,7 @@ import {
   Loader2,
   Network,
   Search,
+  Sparkles,
   CheckSquare,
   Save,
   Trash2,
@@ -22,13 +23,25 @@ import { useAppStore } from "../store/appStore";
 import { api } from "../lib/tauri";
 import type { GraphData, LinkRef, ParsedNote } from "../lib/types";
 import { baseName, dirName, formatRelativeTime, resolveNotePath, stem } from "../lib/files";
+import AiPanel from "./AiPanel";
 import AutomationPanel from "./AutomationPanel";
 import CollectionsPanel from "./CollectionsPanel";
 import HistoryPanel from "./HistoryPanel";
 
-type Tab = "outline" | "links" | "tags" | "search" | "graph" | "views" | "tasks" | "history" | "auto";
+type Tab =
+  | "ai"
+  | "outline"
+  | "links"
+  | "tags"
+  | "search"
+  | "graph"
+  | "views"
+  | "tasks"
+  | "history"
+  | "auto";
 
 const tabs: Array<{ id: Tab; icon: React.ReactNode; label: string }> = [
+  { id: "ai", icon: <Sparkles size={14} />, label: "AI assistant" },
   { id: "outline", icon: <List size={14} />, label: "Outline" },
   { id: "links", icon: <Link2 size={14} />, label: "Links" },
   { id: "tags", icon: <TagsIcon size={14} />, label: "Tags & properties" },
@@ -302,7 +315,8 @@ export default function RightSidebar() {
         {loading && <Loader2 size={12} className="mr-1 animate-spin text-fg-faint" />}
       </div>
 
-      <div className="nc-panel-scroll nc-scroll">
+      <div className="nc-panel-scroll nc-scroll" data-plain={tab === "ai" || undefined}>
+        {tab === "ai" && <AiPanel />}
         {tab === "outline" && (
           <>
             {!active && <div className="nc-panel-empty">Open a note to see its outline.</div>}

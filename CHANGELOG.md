@@ -3,6 +3,14 @@
 ## 0.2.1
 
 ### Added
+- **AI assistant sidebar.** Provider presets with inline SVG marks for DeepSeek, Google Gemini,
+  Mistral, OpenAI, OpenRouter, Groq, Ollama, LM Studio and llama.cpp; editable endpoint and model;
+  keys stored encrypted with the profile and requests made from Rust (the webview stays offline).
+  The agent can list, read, search, create, rename and open notes, create daily notes, list tasks
+  and switch the theme. `propose_edit` shows a line diff with **Accept edit** / **Reject**.
+- **Plugin packages.** Drop a `.zip` with `plugin.json`, a JavaScript entry, optional `style.css`
+  and `icon.png`; NoteCraft installs it under the app data folder, injects the stylesheet and runs
+  the ES module against a typed app API. See `docs/PLUGINS.md`.
 - **NoteCraft document engine** (`src-tauri/src/engine.rs`): our own Rust renderer with no
   third-party Markdown parser. It powers the preview for `.md`, `.mdx` and `.json` and handles
   nested lists, task lists, tables, callouts, footnotes, math passthrough, wiki links, and MDX

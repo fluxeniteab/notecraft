@@ -11,6 +11,28 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 - [x] `render_document` command picks the dialect from the file extension
 - [x] `.mdx` notes indexed and searched like Markdown
 
+## AI assistant (0.2.1)
+- [x] Provider presets: DeepSeek, Google Gemini, Mistral, OpenAI, OpenRouter, Groq
+- [x] Local runtimes: Ollama, LM Studio, llama.cpp (no API key)
+- [x] Inline SVG mark for every provider, in the panel and the setup grid
+- [x] Editable endpoint and model for any OpenAI-compatible gateway
+- [x] Keys stored in the app data folder, encrypted with the unlocked profile
+- [x] Requests executed in Rust; the webview CSP keeps the page offline
+- [x] Agent tools: list/read/search/create/rename/open notes, daily note, tasks, theme
+- [x] Edit proposals shown as a diff with Accept/Reject (never applied automatically)
+- [x] Eight-step tool loop cap and a new-conversation reset
+- [ ] Streaming token output (responses arrive complete)
+
+## Plugin packages (0.2.1)
+- [x] Drag-and-drop or file-picker install of `plugin_xyz.zip`
+- [x] Manifest validation (`plugin.json`), id/folder sanitisation, zip-slip guard
+- [x] Optional `style.css` injected, optional `icon.png`/SVG shown in settings
+- [x] ES module entry with a typed app context (`api`, `toast`, `store`)
+- [x] Enable/disable (styles removed), uninstall removes the folder
+- [x] TypeScript accepted when the compiled `.js` is shipped
+- [x] Documentation in `docs/PLUGINS.md`
+- [ ] Sandboxing of plugin code (plugins run with app privileges)
+
 ## Local accounts, encryption and distribution (0.2.0)
 - [x] Local profiles: one encrypted vault per username in the app data folder
 - [x] Password unlock with Argon2id key derivation; a verifier is stored, never the password

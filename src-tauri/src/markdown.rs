@@ -269,7 +269,8 @@ fn sanitize(html: &str) -> String {
     builder.add_tag_attributes("input", ["type", "checked", "disabled"]);
     builder.add_tag_attributes("th", ["align"]);
     builder.add_tag_attributes("td", ["align"]);
-    builder.add_tag_attributes("a", ["class", "rel", "href", "title"]);
+    // `rel` is managed by ammonia itself and must not be added manually.
+    builder.add_tag_attributes("a", ["class", "href", "title"]);
     builder.add_tag_attributes("img", ["src", "alt", "title", "loading"]);
     builder.add_tag_attributes("code", ["class"]);
     builder.clean(html).to_string()

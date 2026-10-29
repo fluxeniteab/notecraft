@@ -9,6 +9,7 @@ import {
   Info,
   Loader2,
   Moon,
+  PackagePlus,
   Palette,
   RotateCcw,
   Sun,
@@ -19,6 +20,7 @@ import {
 import { useAppStore } from "../store/appStore";
 import { applyTheme, normalizeTheme } from "../lib/theme";
 import { persistSettings } from "../lib/settingsActions";
+import { loadPlugin, pluginEngine, unloadPluginStyles } from "../lib/pluginRuntime";
 import { api } from "../lib/tauri";
 import type { Settings, SyncFileStatus, Theme } from "../lib/types";
 import { Switch, Kbd, Modal } from "./ui";
@@ -169,6 +171,9 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
   const [syncStatuses, setSyncStatuses] = useState<SyncFileStatus[] | null>(null);
   const [syncBusy, setSyncBusy] = useState<"push" | "pull" | "refresh" | null>(null);
   const [settingsFailed, setSettingsFailed] = useState(false);
+  const [pluginIcons, setPluginIcons] = useState<Record<string, string>>({});
+  const [dragOver, setDragOver] = useState(false);
+  const [installing, setInstalling] = useState(false);
 
   // Never leave the dialog on a dead spinner: if settings do not arrive,
   // say so and offer a way out.
@@ -182,9 +187,58 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
   }, [open, draft]);
 
   const loadPlugins = useCallback(() => {
-    void api.listPlugins().then(setPluginList).catch(() => setPluginList([]));
+    void api
+      .listPlugins()
+      .then((list) => {
+        setPluginList(list);
+        list.forEach((plugin) => {
+          void pluginEngine
+            .package(plugin.id)
+            .then((pkg) => {
+              if (pkg.icon) {
+                setPluginIcons((current) => ({ ...current, [plugin.id]: pkg.icon as string }));
+              }
+            })
+            .catch(() => {});
+          if (plugin.enabled) void loadPlugin(plugin.id).catch(() => {});
+        });
+      })
+      .catch(() => setPluginList([]));
     void api.pluginCatalog().then(setCatalog).catch(() => setCatalog([]));
   }, []);
+
+  const installPackage = useCallback(
+    async (path: string) => {
+      setInstalling(true);
+      try {
+        const plugin = await pluginEngine.importZip(path);
+        toast.success("Plugin installed", { description: `${plugin.name} v${plugin.version}` });
+        loadPlugins();
+        await loadPlugin(plugin.id).catch((error) =>
+          toast.error("Installed, but could not start", { description: String(error) })
+        );
+      } catch (error) {
+        toast.error("Could not install the plugin", { description: String(error) });
+      } finally {
+        setInstalling(false);
+      }
+    },
+    [loadPlugins]
+  );
+
+  const pickPackage = useCallback(async () => {
+    try {
+      const { open: pickFile } = await import("@tauri-apps/plugin-dialog");
+      const picked = await pickFile({
+        multiple: false,
+        filters: [{ name: "Plugin package", extensions: ["zip"] }],
+      });
+      const path = Array.isArray(picked) ? picked[0] : picked;
+      if (typeof path === "string" && path) await installPackage(path);
+    } catch (error) {
+      toast.error("Could not open the file picker", { description: String(error) });
+    }
+  }, [installPackage]);
 
   const refreshSync = useCallback(async () => {
     try {
@@ -903,13 +957,65 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
               {section === "plugins" && (
                 <>
                   <div className="nc-setting-group">
+                    <div className="nc-setting-group-title">Install a plugin package</div>
+                    <div
+                      className="nc-plugin-drop"
+                      data-over={dragOver || undefined}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        setDragOver(true);
+                      }}
+                      onDragLeave={() => setDragOver(false)}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        setDragOver(false);
+                        const file = event.dataTransfer.files?.[0] as
+                          | (File & { path?: string })
+                          | undefined;
+                        if (!file) return;
+                        if (file.path) void installPackage(file.path);
+                        else toast.error("Could not read the dropped file", { description: "Use the button instead." });
+                      }}
+                    >
+                      <PackagePlus size={18} />
+                      <div>
+                        <strong>Drop a plugin .zip here</strong>
+                      </div>
+                      <div>
+                        It needs <code>plugin.json</code> and a JavaScript entry; <code>style.css</code>{" "}
+                        and <code>icon.png</code> are optional.
+                      </div>
+                      <button
+                        type="button"
+                        className="nc-btn nc-btn-outline mt-1"
+                        disabled={installing}
+                        onClick={() => void pickPackage()}
+                      >
+                        {installing ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+                        Choose file…
+                      </button>
+                    </div>
+                    <div className="nc-setting-hint mt-2">
+                      Plugins run with the app&apos;s privileges. Only install packages you trust.
+                    </div>
+                  </div>
+
+                  <div className="nc-setting-group">
                     <div className="nc-setting-group-title">Installed plugins</div>
                     {pluginList.length === 0 ? (
                       <div className="nc-setting-hint">No plugins installed yet — pick one from the catalog below.</div>
                     ) : (
                       pluginList.map((plugin) => (
                         <div key={plugin.id} className="nc-setting-row">
-                          <div>
+                          <div className="flex items-start gap-2.5">
+                            <span className="nc-plugin-icon">
+                              {pluginIcons[plugin.id] ? (
+                                <img src={pluginIcons[plugin.id]} alt="" />
+                              ) : (
+                                <Puzzle size={13} className="text-fg-faint" />
+                              )}
+                            </span>
+                            <div>
                             <div className="nc-setting-label">
                               {plugin.name} <span className="text-fg-faint">v{plugin.version}</span>
                             </div>
@@ -921,6 +1027,7 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
                                 ))}
                               </div>
                             )}
+                            </div>
                           </div>
                           <div className="nc-setting-control flex items-center gap-2">
                             <Switch
@@ -928,7 +1035,16 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
                               onChange={(value) => {
                                 void api
                                   .enablePlugin(plugin.id, value)
-                                  .then(loadPlugins)
+                                  .then(() => {
+                                    loadPlugins();
+                                    if (value) {
+                                      void loadPlugin(plugin.id).catch((error) =>
+                                        toast.error("Could not start the plugin", { description: String(error) })
+                                      );
+                                    } else {
+                                      unloadPluginStyles(plugin.id);
+                                    }
+                                  })
                                   .catch((error) =>
                                     toast.error("Could not change plugin state", { description: String(error) })
                                   );

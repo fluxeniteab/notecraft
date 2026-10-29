@@ -20,6 +20,11 @@ NoteCraft is a Markdown knowledge base for people who want their notes to stay p
 - **Real links.** `[[wiki links]]`, backlinks, tags, unlinked mentions and a graph view.
 - **Workflow built in.** Tasks with due dates, daily notes, quick capture, templates,
   saved searches, snapshots with diff and restore, canvas boards and automations.
+- **Built-in AI assistant.** A right-rail agent with provider logos for DeepSeek, Gemini,
+  Mistral, OpenAI, OpenRouter, Groq and three local runtimes (Ollama, LM Studio, llama.cpp).
+  It can read, search and create notes, and every edit arrives as a diff with Accept/Reject.
+- **Plugins you can drop in.** Install a `.zip` containing `plugin.json`, a JavaScript entry,
+  optional CSS and an icon. No store account, no downloads behind your back.
 - **A CLI for agents.** `notecraft-cli` reads and writes the same vaults from a terminal.
 
 No account, no server, no telemetry. Nothing leaves the machine unless you point a sync folder at it.
@@ -50,6 +55,17 @@ The password is the only way in. There is no recovery key and no reset — if it
 in that profile cannot be decrypted. Export anything you cannot afford to lose.
 
 `Ctrl+Shift+L` locks the app. Locking drops the key from memory; the vault stays on disk.
+
+## AI and plugins
+
+Open the sparkle button in the right rail, pick a provider and paste its key. Keys are kept
+encrypted with your profile and used from the Rust core, never from the page. Local providers
+need no key — start Ollama, LM Studio or `llama-server` first. See
+[docs/AI.md](docs/AI.md) for the tool list and approval flow.
+
+Plugins are installed from **Settings → Plugins → Choose file…** (or by dropping a `.zip` on
+that card). The package format and runtime API are documented in
+[docs/PLUGINS.md](docs/PLUGINS.md).
 
 ## Getting around
 

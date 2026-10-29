@@ -1,3 +1,4 @@
+pub mod ai;
 pub mod automation;
 pub mod commands;
 pub mod engine;
@@ -59,6 +60,12 @@ pub fn run() {
             commands::export_note,
             commands::export_print_html,
             commands::save_text_file,
+            commands::ai_providers,
+            commands::ai_load_config,
+            commands::ai_save_config,
+            commands::ai_chat,
+            commands::import_plugin_zip,
+            commands::plugin_package,
             commands::search,
             commands::save_search,
             commands::list_saved_searches,

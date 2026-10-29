@@ -4,7 +4,6 @@
   "version": "1.0.0",
   "author": "NoteCraft",
   "description": "Example plugin demonstrating the NoteCraft plugin API.",
-  "api_version": "1",
-  "entry": "index.js",
-  "permissions": ["notes:read", "commands:register"]
+  "permissions": ["notes:read", "ui"],
+  "main": "index.js"
 }
