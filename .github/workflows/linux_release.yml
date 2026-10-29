@@ -1,0 +1,97 @@
+name: Linux Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attach the bundles to (leave empty to only upload artifacts)"
+        required: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  linux_release:
+    name: Build Linux release
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential curl wget file pkg-config \
+            libssl-dev libgtk-3-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev \
+            libayatana-appindicator3-dev librsvg2-dev libxdo-dev patchelf
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend deps
+        run: bun install --frozen-lockfile
+
+      - name: Build deb and AppImage
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: bun run tauri build --bundles deb,appimage
+
+      - name: Upload Linux bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: notecraft-linux
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz
+            src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz.sig
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: VirusTotal scan
+        env:
+          VT_API_KEY: ${{ secrets.VT_SCAN }}
+        run: node .github/scripts/vt-scan.mjs src-tauri/target/release/bundle/deb/*.deb src-tauri/target/release/bundle/appimage/*.AppImage
+
+      - name: Attach bundles to the GitHub release
+        if: github.ref_type == 'tag' || inputs.tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || \
+            gh release create "$RELEASE_TAG" \
+              --title "NoteCraft $RELEASE_TAG" \
+              --notes "NoteCraft $RELEASE_TAG" \
+              --verify-tag
+          gh release upload "$RELEASE_TAG" \
+            src-tauri/target/release/bundle/deb/*.deb \
+            src-tauri/target/release/bundle/appimage/*.AppImage \
+            src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz \
+            --clobber
+
+      - name: Publish updater manifest
+        if: github.ref_type == 'tag' || inputs.tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          PLATFORM: linux-x86_64
+        run: |
+          shopt -s nullglob
+          archives=(src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz)
+          if [ ${#archives[@]} -eq 0 ]; then
+            echo "No AppImage updater archive was produced" >&2
+            exit 1
+          fi
+          ARTIFACT="${archives[0]}" node .github/scripts/updater-manifest.mjs

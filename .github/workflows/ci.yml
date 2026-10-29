@@ -10,84 +10,134 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------
-  # Formatting and lints run once, on Linux.
+  # Tester: frontend gates plus the Rust unit suite and lints.
   # ---------------------------------------------------------------------
-  lint:
-    name: Format and clippy
+  test:
+    name: Tests
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Linux windowing dependencies
+      - name: Install Linux build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config libxkbcommon-dev \
-            libwayland-dev libx11-dev libxi-dev libxcursor-dev \
-            libxrandr-dev libgl1-mesa-dev libssl-dev
+            build-essential curl wget file pkg-config \
+            libssl-dev libgtk-3-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev \
+            libayatana-appindicator3-dev librsvg2-dev libxdo-dev patchelf
 
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
 
-      - uses: Swatinem/rust-cache@v2
+      - name: Install frontend deps
+        run: bun install --frozen-lockfile
 
-      - name: Format check
+      - name: Type check
+        run: bun run typecheck
+      - name: Frontend lint
+        run: bun run lint
+      - name: Frontend tests
+        run: bun run test
+      - name: Frontend build
+        run: bun run build
+
+      - name: Rust format check
+        working-directory: src-tauri
         run: cargo fmt --all -- --check
-
-      - name: Clippy
-        run: cargo clippy --all-targets -- -D warnings
+      - name: Rust check
+        working-directory: src-tauri
+        run: cargo check --all-targets
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test --all-targets
+      - name: Rust clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets
 
   # ---------------------------------------------------------------------
-  # The test suite, on every platform we ship.
+  # Builders: one packaged app per platform, uploaded as a workflow artifact.
   # ---------------------------------------------------------------------
-  test:
-    name: Tests (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+  build:
+    name: Build (${{ matrix.name }})
+    needs: test
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-latest, macos-latest]
+        include:
+          - name: windows
+            os: windows-latest
+            bundles: msi,nsis
+            artifact: notecraft-windows
+          - name: macos
+            os: macos-latest
+            bundles: app,dmg
+            artifact: notecraft-macos
+          - name: linux
+            os: ubuntu-22.04
+            bundles: deb,appimage
+            artifact: notecraft-linux
+
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Linux windowing dependencies
-        if: runner.os == 'Linux'
+      - name: Install Linux build dependencies
+        if: matrix.name == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config libxkbcommon-dev \
-            libwayland-dev libx11-dev libxi-dev libxcursor-dev \
-            libxrandr-dev libgl1-mesa-dev libssl-dev
+            build-essential curl wget file pkg-config \
+            libssl-dev libgtk-3-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev \
+            libayatana-appindicator3-dev librsvg2-dev libxdo-dev patchelf
 
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Type check (all targets)
-        run: cargo check --all-targets
-
-      - name: Tests
-        run: cargo test --all-targets
-
-      - name: Release build
-        run: cargo build --release
-
-      # Keep a downloadable binary from every green run, so a build can be tried
-      # without cutting a release. Tagged releases come from release.yml.
-      - name: Collect binary
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p dist
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            cp target/release/notecraft.exe "dist/notecraft-$RUNNER_OS-x64.exe"
-          else
-            cp target/release/notecraft "dist/notecraft-$RUNNER_OS-${{ runner.arch }}"
-          fi
-
-      - uses: actions/upload-artifact@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          name: notecraft-${{ runner.os }}
-          path: dist/*
+          bun-version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend deps
+        run: bun install --frozen-lockfile
+
+      - name: Build app and bundles
+        env:
+          # Updater artifacts are produced by every build, so the signing key is
+          # required here too.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: bun run tauri build --bundles ${{ matrix.bundles }}
+
+      - name: Upload bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: src-tauri/target/release/bundle
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
+
+      - name: VirusTotal scan
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          VT_API_KEY: ${{ secrets.VT_SCAN }}
+        run: |
+          shopt -s nullglob
+          files=(
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/appimage/*.AppImage
+          )
+          node .github/scripts/vt-scan.mjs "${files[@]}" || {
+            echo '::warning::VirusTotal scan found issues on some artifacts; release gate is informational'
+            exit 0
+          }

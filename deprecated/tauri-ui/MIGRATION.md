@@ -1,8 +1,13 @@
-# Legacy → native migration map
+# Tauri → native migration map
 
-How the archived Tauri + React interface (`src/`, `src-tauri/`) maps onto the
-native Rust + egui application at the repository root. Use this when comparing
-behaviour, or when a native detail must be checked against the original.
+> **Status:** the Tauri application was promoted back to the repository root in
+> 0.4.0 and is the shipped app. This map documents the experimental eframe/egui
+> build in [`native/`](../../native), which was derived from it in 0.3.0 — useful
+> if that work is picked up again, or when comparing the two implementations.
+
+How the Tauri + React interface (`src/`, `src-tauri/`) maps onto the native Rust
++ egui application in `native/`. Use this when comparing behaviour, or when a
+native detail must be checked against the original.
 
 ## Shell and layout
 

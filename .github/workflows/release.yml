@@ -1,196 +1,108 @@
 name: Release
 
-# Two ways to cut a release:
-#   * push a tag like `v0.4.0` (the tag already exists);
-#   * run this workflow by hand — it reads the version from Cargo.toml (or the
-#     `version` input), creates the tag itself, and publishes the release.
-# Either way the binaries are built on every platform, uploaded as artifacts
-# first, then attached to the GitHub Release with checksums.
+# One-click release for the Tauri application.
+#
+# `workflow_dispatch` resolves the version (input, or `src-tauri/tauri.conf.json`),
+# creates the tag if it does not exist, and then starts the three platform
+# release workflows, which build the signed installers and attach them to the
+# release for that tag. Pushing a `v*` tag yourself does the same thing without
+# this workflow: each platform workflow already listens for tag pushes.
+#
+# Turn `publish` off to run the whole pipeline as a dry run: the platform
+# workflows build and upload artifacts but no tag or release is created.
 
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to tag and release (e.g. 0.4.0). Empty = the version in Cargo.toml"
+        description: "Version to release (e.g. 0.4.0). Empty = the version in src-tauri/tauri.conf.json"
         required: false
         type: string
       publish:
-        description: "Create the tag and publish the GitHub Release"
+        description: "Create the tag and publish the release"
         type: boolean
         default: true
 
 permissions:
   contents: write
+  actions: write
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # Work out which tag this run is for, and whether it may publish.
-  # ---------------------------------------------------------------------------
-  version:
-    name: Resolve version
+  tag:
+    name: Resolve version and start builds
     runs-on: ubuntu-22.04
-    outputs:
-      tag: ${{ steps.resolve.outputs.tag }}
-      publish: ${{ steps.resolve.outputs.publish }}
     steps:
       - uses: actions/checkout@v4
 
-      - id: resolve
+      - name: Resolve the tag
+        id: resolve
         shell: bash
         run: |
           set -euo pipefail
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            tag="${GITHUB_REF_NAME}"
-          else
-            requested="${{ inputs.version }}"
-            if [ -z "$requested" ]; then
-              requested=$(grep -m1 '^version' Cargo.toml | sed -E 's/^[^"]*"([^"]+)".*/\1/')
-            fi
-            case "$requested" in
-              v*) tag="$requested" ;;
-              *)  tag="v$requested" ;;
-            esac
+          requested="${{ inputs.version }}"
+          if [ -z "$requested" ]; then
+            requested=$(grep -m1 '"version"' src-tauri/tauri.conf.json \
+              | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
           fi
+          case "$requested" in
+            v*) tag="$requested" ;;
+            *)  tag="v$requested" ;;
+          esac
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Resolved $tag (publish: ${{ inputs.publish }})"
 
-          publish='true'
-          if [ "${GITHUB_REF_TYPE}" != "tag" ] && [ "${{ inputs.publish }}" != "true" ]; then
-            publish='false'
-          fi
-          echo "publish=$publish" >> "$GITHUB_OUTPUT"
-          echo "Resolved tag $tag (publish: $publish)"
-
-  # ---------------------------------------------------------------------------
-  # Build every platform. Artifacts are uploaded even when publishing is off,
-  # so a dry run still gives you something to download and test.
-  # ---------------------------------------------------------------------------
-  build:
-    name: Build (${{ matrix.os }})
-    needs: version
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            artifact: notecraft-windows-x64.zip
-            binary: notecraft.exe
-          - os: ubuntu-22.04
-            artifact: notecraft-linux-x64.tar.gz
-            binary: notecraft
-          - os: macos-latest
-            artifact: notecraft-macos-arm64.tar.gz
-            binary: notecraft
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Linux windowing dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config libxkbcommon-dev \
-            libwayland-dev libx11-dev libxi-dev libxcursor-dev \
-            libxrandr-dev libgl1-mesa-dev libssl-dev
-
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Tests
-        run: cargo test --all-targets --locked
-
-      - name: Build
-        run: cargo build --release --locked
-
-      - name: Package (Windows)
-        if: runner.os == 'Windows'
+      - name: Create the tag
+        if: inputs.publish
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.resolve.outputs.tag }}
         run: |
           set -euo pipefail
-          # Run from target/release so the archive contains the exe at its root
-          # instead of a target/release/ path prefix.
-          ( cd target/release && 7z a -tzip "$GITHUB_WORKSPACE/${{ matrix.artifact }}" "${{ matrix.binary }}" )
-
-      - name: Package (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          set -euo pipefail
-          tar -czf "${{ matrix.artifact }}" -C target/release "${{ matrix.binary }}"
-
-      - name: Checksum
-        shell: bash
-        run: |
-          set -euo pipefail
-          if command -v sha256sum >/dev/null 2>&1; then
-            sha256sum "${{ matrix.artifact }}" > "${{ matrix.artifact }}.sha256"
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists; the platform builds will attach to it."
           else
-            shasum -a 256 "${{ matrix.artifact }}" > "${{ matrix.artifact }}.sha256"
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA" >/dev/null
+            echo "Created tag $TAG at $GITHUB_SHA"
           fi
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: |
-            ${{ matrix.artifact }}
-            ${{ matrix.artifact }}.sha256
-          if-no-files-found: error
-          retention-days: 30
-
-  # ---------------------------------------------------------------------------
-  # Collect the artifacts into one release. `tag_name` creates the tag if it
-  # does not exist yet, which is what lets a manual run cut a release.
-  # ---------------------------------------------------------------------------
-  publish:
-    name: Publish release
-    needs: [version, build]
-    if: needs.version.outputs.publish == 'true'
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
-
-      - name: Collect checksums
+      - name: Start the platform release workflows
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+          PUBLISH: ${{ inputs.publish }}
         run: |
           set -euo pipefail
-          cd dist
-          cat ./*.sha256 > SHA256SUMS.txt
-          rm -f ./*.sha256
-          ls -lh
+          # `tag` empty means "build and upload artifacts only" to those workflows.
+          target="$TAG"
+          if [ "$PUBLISH" != "true" ]; then
+            target=""
+          fi
+          for workflow in windows_release.yml macos_release.yml linux_release.yml; do
+            gh workflow run "$workflow" --ref "$GITHUB_REF_NAME" -f tag="$target"
+            echo "Started $workflow (tag: ${target:-none})"
+          done
 
-      - name: Write release notes header
+      - name: Summary
         shell: bash
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          PUBLISH: ${{ inputs.publish }}
         run: |
-          cat > dist/NOTES.md <<'EOF'
-          Native Rust + egui build. Extract the archive for your platform and run
-          the `notecraft` binary; there is no installer and no auto-updater.
-
-          - Windows x64: `notecraft-windows-x64.zip`
-          - Linux x64: `notecraft-linux-x64.tar.gz`
-          - macOS (Apple silicon): `notecraft-macos-arm64.tar.gz`
-
-          Binaries are unsigned. Verify downloads against `SHA256SUMS.txt`.
-          EOF
-
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.version.outputs.tag }}
-          name: NoteCraft ${{ needs.version.outputs.tag }}
-          target_commitish: ${{ github.sha }}
-          body_path: dist/NOTES.md
-          files: |
-            dist/notecraft-windows-x64.zip
-            dist/notecraft-linux-x64.tar.gz
-            dist/notecraft-macos-arm64.tar.gz
-            dist/SHA256SUMS.txt
-          generate_release_notes: true
-          draft: false
-          fail_on_unmatched_files: true
+          {
+            echo "### NoteCraft release ${TAG}"
+            echo
+            if [ "$PUBLISH" = "true" ]; then
+              echo "Tag created and the three platform workflows started. Installers"
+              echo "appear at <https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG>"
+              echo "as each runner finishes."
+            else
+              echo "Dry run: no tag or release was created. Installers are attached to"
+              echo "each platform workflow run as artifacts."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

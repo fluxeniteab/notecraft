@@ -1,124 +1,149 @@
 # NoteCraft
 
-A local-first knowledge base for Markdown, MDX and JSON — a native Rust desktop
-application built with [egui](https://github.com/emilk/egui) through `eframe`.
+A desktop notes app that keeps everything on your own machine, encrypted with your password.
 
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-4f86f7)
 ![License](https://img.shields.io/badge/license-GPL--3.0-77777f)
 
 ## What it is
 
-NoteCraft is a writing tool for people who want their notes to stay on their own
-disk, in ordinary files:
+NoteCraft is a Markdown knowledge base for people who want their notes to stay put:
 
-- **Native, not wrapped.** One Rust binary: no webview, no Node.js runtime, no
-  Tauri IPC. The window, the menus, the editor and the reading view are drawn by
-  egui.
-- **Real documents.** `.md`, `.mdx`, `.json`, `.yaml`, `.txt`, `.html`, `.css`,
-  `.js` and `.ts` are first-class types. A JSON file is never given Markdown
-  statistics, and Markdown never gets a JSON tree.
-- **A Markdown engine that parses properly.** Block and inline parsing is done by
-  `pulldown-cmark`; NoteCraft turns those events into native text layouts with
-  real bold and italic faces, code blocks with syntax highlighting, tables,
-  task checkboxes, quotes and links.
-- **JSON you can inspect.** `serde_json` validation with line and column, a
-  collapsible tree that preserves document key order, key filtering, expand and
-  collapse, right-click to copy a JSON Pointer, and Format/Minify that refuse to
-  touch invalid input.
-- **MDX without pretending.** JSX and `{expressions}` are recognised, shown as
-  inert source, and diagnosed (unclosed components, mismatched tags, unbalanced
-  braces, ESM) with line and column. Document code is **never executed**.
-- **Vaults as folders.** Open any folder; the explorer and search work on real
-  files. Saves are atomic, deletes go to `.notecraft/trash`, and each save writes
-  a bounded history snapshot to `.notecraft/history`.
-- **No account, no server, no telemetry.**
+- **Local profiles.** Every username is a separate vault in this app's data folder.
+- **Encrypted at rest.** Notes are sealed with ChaCha20-Poly1305 using a key derived from your
+  password with Argon2id. The password is never written to disk.
+- **Fast editing.** CodeMirror 6 with source, live-preview, reading and split modes.
+- **One Rust document engine.** Markdown, MDX and JSON are rendered by NoteCraft's own Rust
+  engine — no third-party Markdown parser. JSON becomes a readable outline; MDX components are
+  surfaced instead of mangled.
+- **Real exports.** Markdown, standalone HTML, and print / save-as-PDF from the editor menu.
+- **Real links.** `[[wiki links]]`, backlinks, tags, unlinked mentions and a graph view.
+- **Workflow built in.** Tasks with due dates, daily notes, quick capture, templates,
+  saved searches, snapshots with diff and restore, canvas boards and automations.
+- **Built-in AI assistant.** A right-rail agent with provider logos for DeepSeek, Gemini,
+  Mistral, OpenAI, OpenRouter, Groq and three local runtimes (Ollama, LM Studio, llama.cpp).
+  It can read, search and create notes, and every edit arrives as a diff with Accept/Reject.
+- **Plugins you can drop in.** Install a `.zip` containing `plugin.json`, a JavaScript entry,
+  optional CSS and an icon. No store account, no downloads behind your back.
+- **A CLI for agents.** `notecraft-cli` reads and writes the same vaults from a terminal.
+
+No account, no server, no telemetry. Nothing leaves the machine unless you point a sync folder at it.
 
 ## Install
 
-Download the archive for your platform from
+Download the installer for your platform from
 [Releases](https://github.com/fluxeniteab/notecraft/releases):
 
 | Platform | File |
 | --- | --- |
-| Windows | `notecraft-windows-x64.zip` (contains `notecraft.exe`) |
-| macOS (Apple silicon) | `notecraft-macos-arm64.tar.gz` |
-| Linux | `notecraft-linux-x64.tar.gz` |
+| Windows | `.msi` or `.exe` (NSIS) |
+| macOS | `.dmg` (Apple silicon) |
+| Linux | `.AppImage` or `.deb` |
 
-Extract and run the binary. There is no installer and no auto-updater in this
-build; updates are a new archive.
+Builds are scanned with VirusTotal in CI and each release report is attached to the run summary.
+The app checks for signed updates on launch and installs them from the in-app prompt.
 
 ## First run
 
-1. Start NoteCraft. You get an empty workspace.
-2. **File → Open vault…** and pick a folder. Any folder of Markdown files works.
-3. `Ctrl N` for a new note, or click a file in the explorer.
+1. Start NoteCraft. You land on the lock screen.
+2. Choose a username and a password of at least 8 characters. That creates an encrypted vault in
+   `%APPDATA%\NoteCraft\profiles\<id>\vault` (Linux: `~/.local/share/NoteCraft`, macOS:
+   `~/Library/Application Support/NoteCraft`).
+3. A tutorial note is seeded so you have something to edit.
 
-The vault's `.notecraft/` folder holds trash and history. It is ignored by the
-explorer and never synced by NoteCraft itself.
+The password is the only way in. There is no recovery key and no reset — if it is lost, the notes
+in that profile cannot be decrypted. Export anything you cannot afford to lose.
+
+`Ctrl+Shift+L` locks the app. Locking drops the key from memory; the vault stays on disk.
+
+## AI and plugins
+
+Open the sparkle button in the right rail, pick a provider and paste its key. Keys are kept
+encrypted with your profile and used from the Rust core, never from the page. Local providers
+need no key — start Ollama, LM Studio or `llama-server` first. See
+[docs/AI.md](docs/AI.md) for the tool list and approval flow.
+
+Plugins are installed from **Settings → Plugins → Choose file…** (or by dropping a `.zip` on
+that card). The package format and runtime API are documented in
+[docs/PLUGINS.md](docs/PLUGINS.md).
 
 ## Getting around
 
 | Action | Shortcut |
 | --- | --- |
-| Search files and vault content | `Ctrl K` |
-| Command list | `Ctrl P` |
-| New Markdown note | `Ctrl N` |
-| Save | `Ctrl S` |
-| Save all | `Ctrl Shift S` |
-| Close tab | `Ctrl W` |
-| Toggle explorer / context panel | `Ctrl B` / `Ctrl \` |
-| Cycle edit → split → read | `Ctrl E` |
-| Edit / split / read directly | `Ctrl 1` / `Ctrl 2` / `Ctrl 3` |
-| Previous / next tab | `Alt ←` / `Alt →` |
-| Focus mode | `Ctrl Shift P` |
-| Settings | `Ctrl ,` |
-| Close dialog or menu | `Esc` |
+| Command palette | `Ctrl+K` |
+| Quick open | `Ctrl+P` |
+| New note | `Ctrl+N` |
+| Daily note | `Ctrl+Alt+N` |
+| Quick capture | `Ctrl+Shift+N` |
+| Save now | `Ctrl+S` |
+| Search everything | `Ctrl+Shift+F` |
+| Toggle sidebar / context panel | `Ctrl+B` / `Ctrl+\` |
+| Focus mode | `Ctrl+Shift+F` |
+| Switch theme | `Ctrl+Shift+D` |
+| Lock profile | `Ctrl+Shift+L` |
 
-Menus: **File**, **Edit**, **Format**, **View**, **Insert**, **Navigate**,
-**Tools**, **Plugins**, **Help**. Every entry performs a real action.
+Right-click menus are custom; the webview's own context menu is disabled.
 
-## Document types
+## Command line
 
-| Extension | Editor | Reading view | Validation |
-| --- | --- | --- | --- |
-| `.md` | proportional, marked-up | rendered Markdown | – |
-| `.mdx` | proportional, JSX/expression highlighting | rendered Markdown + diagnostics | structural (never executed) |
-| `.json` | monospace + line numbers | collapsible tree | `serde_json`, line/column |
-| `.yaml` / `.yml` | monospace | source | `serde_yaml`, line/column |
-| `.txt` | proportional | – | – |
-| `.html`, `.css`, `.js`, `.ts` | monospace | source | – |
-| anything else | monospace | source | – |
+The CLI uses the same encrypted vaults and the same credentials:
 
-Unknown file types are opened as plain text and never rewritten into another
-format.
+```bash
+notecraft-cli profiles
+notecraft-cli list --user ada --password 'correct horse battery'
+notecraft-cli read "Tutorial.md" --user ada --password '...'
+notecraft-cli write "inbox.md" --stdin --user ada --password '...' < note.md
+notecraft-cli search "graph" --json --user ada --password '...'
+```
 
-## Documentation
+`NOTECRAFT_USER` and `NOTECRAFT_PASSWORD` work too. `--json` prints a single document, which is
+what agents and scripts should use. See [docs/CLI.md](docs/CLI.md).
 
-- [Architecture](docs/ARCHITECTURE.md) — module map, design tokens, security notes
-- [Feature status](FEATURES.md) — what works, what does not, and why
-- [Changelog](CHANGELOG.md)
-- [Build and test](build.md)
+## Privacy and security
 
-## The previous interface
-
-The Tauri + React implementation this project started as is archived, unchanged,
-in [deprecated/tauri-ui](deprecated/tauri-ui). It is kept for reference and
-visual comparison, and it documents the behaviour the native build reproduces.
-See its [migration map](deprecated/tauri-ui/MIGRATION.md).
+Read [docs/SECURITY.md](docs/SECURITY.md) for the exact scheme, what is encrypted, and the limits
+of the threat model.
 
 ## Development
 
 ```bash
-cargo check --all-targets     # type-check the application and its tests
-cargo test --all-targets      # unit tests
-cargo fmt --all -- --check
-cargo clippy --all-targets -- -D warnings
-cargo build --release
+bun install
+bun run dev          # Vite dev server on http://localhost:1420
+bun run typecheck
+bun run lint
+bun run test
+bun run build
+bun run tauri dev    # full desktop app
 ```
 
-Windows, macOS and Linux builds are produced by GitHub Actions
-([.github/workflows](.github/workflows)). Rust linking needs a platform toolchain
-(MSVC on Windows), so a machine without one can type-check but not link.
+Rust is built and tested in GitHub Actions (`.github/workflows/ci.yml`); the release workflows in
+[.github/workflows](.github/workflows) package Windows, macOS and Linux builds.
+
+### Releasing
+
+Run **Actions → Release → Run workflow** with a version (defaults to `src-tauri/tauri.conf.json`).
+It creates the `v<version>` tag and starts the three platform builds, which attach the installers
+to the release. Turn `publish` off for a dry run that only uploads artifacts. Pushing a `v*` tag
+yourself does the same thing.
+
+### Native (experimental)
+
+A native eframe/egui rewrite is preserved in [`native/`](native) — no webview, JSON tree and MDX
+diagnostics included. It is **not** the shipped application: it has no encryption, AI assistant,
+plugins, graph or canvas, and its interface is not yet at parity with the app above. It is kept
+building by [`.github/workflows/native.yml`](.github/workflows/native.yml) so the work is not lost.
+The archived Tauri code that this repository started from is now the primary app again; see
+[deprecated/tauri-ui/MIGRATION.md](deprecated/tauri-ui/MIGRATION.md) for how the two relate.
+
+## Documentation
+
+- [Tutorial](docs/TUTORIAL.md) — a guided tour of every feature
+- [CLI](docs/CLI.md) — terminal access for scripts and agents
+- [Security](docs/SECURITY.md) — encryption scheme and threat model
+- [Signing](docs/SIGNING.md) — code signing and notarization secrets
+- [Feature checklist](FEATURES.md) — what is implemented and what is not
+- [Changelog](CHANGELOG.md)
 
 ## License
 

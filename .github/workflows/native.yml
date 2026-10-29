@@ -1,0 +1,59 @@
+name: Native (experimental)
+
+# The shipped application is the Tauri app at the repository root. The native
+# eframe/egui rewrite lives in `native/` and is not released from here; these
+# checks keep it compiling and tested so the work is not lost.
+
+on:
+  push:
+    branches: [main, master]
+    paths: ["native/**", ".github/workflows/native.yml"]
+  pull_request:
+    paths: ["native/**", ".github/workflows/native.yml"]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: Check and test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux windowing dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libxkbcommon-dev \
+            libwayland-dev libx11-dev libxi-dev libxcursor-dev \
+            libxrandr-dev libgl1-mesa-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+
+      - name: Format check
+        working-directory: native
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        working-directory: native
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Tests
+        working-directory: native
+        run: cargo test --all-targets
+
+      - name: Release build
+        working-directory: native
+        run: cargo build --release

@@ -1,10 +1,29 @@
 # Changelog
 
-## 0.3.0 — native rewrite
+## 0.4.0
 
-NoteCraft is now a single native Rust binary (eframe + egui). There is no
-webview, no Node.js runtime and no Tauri IPC. The previous Tauri + React
-implementation is archived unchanged in `deprecated/tauri-ui/`.
+### Changed
+- **The Tauri application is the shipped app again.** 0.3.0 replaced it with a
+  native eframe/egui rewrite; the interface drifted away from the design people
+  were using and the advanced modules (AI assistant, plugins, encrypted
+  profiles, graph, canvas, database views, automation, CLI) were missing. This
+  release returns to the Tauri + React application with all of them intact.
+- **The native rewrite is kept, not deleted.** It lives in `native/` as an
+  experimental build with its own CI checks, and 0.3.0 is marked as a
+  pre-release. Nothing from it was thrown away.
+- Releases can now be cut from the Actions tab (`.github/workflows/release.yml`):
+  the version is read from `tauri.conf.json`, the tag is created and the three
+  platform builds attach their installers.
+
+## 0.3.0 — native rewrite (experimental)
+
+> Superseded by 0.4.0 and marked as a pre-release. The code is preserved in
+> `native/`.
+
+NoteCraft is a single native Rust binary (eframe + egui). There is no webview,
+no Node.js runtime and no Tauri IPC. The Tauri + React implementation this was
+forked from is preserved; it was later promoted back to the primary app in
+0.4.0 and now lives at the repository root.
 
 ### Added
 - **Native application shell.** Menu bar (File, Edit, Format, View, Insert,
