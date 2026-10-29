@@ -1,7 +1,26 @@
-# Deprecated: the archived Tauri UI (now promoted back)
+# Deprecated: the archived React UI
 
-This directory holds the history of the 0.3.0 detour, not a copy of the
-application.
+This directory preserves the previous frontends for reference. The shipped
+application now uses a Svelte 5 interface in the repository root.
+
+## The React snapshot (`react-src/`)
+
+`react-src/` is the complete React + TypeScript frontend as it shipped in
+0.4.0: every component, stylesheet, store, editor extension, test, Vite config
+and asset. It is kept so the previous design, interaction details and feature
+implementations can be compared or recovered. It is **not built** by the Tauri
+configuration and its toolchain is deliberately not installed. To inspect a
+file, read it in place; to run it, its original `package.json` dependencies must
+be restored in an isolated copy.
+
+Do not delete this directory as part of frontend clean-up. `MIGRATION.md` maps
+its components to the native experiment; the authoritative current UI lives in
+`src/` at the repository root.
+
+## The 0.3.0 detour
+
+This directory also holds the history of the 0.3.0 native experiment, not a
+copy of the application.
 
 ## What happened
 
@@ -17,7 +36,8 @@ application.
 
 | What | Where |
 | --- | --- |
-| The application (Tauri 2, React, CodeMirror, Rust core) | repository root: `src/`, `src-tauri/` |
+| The current application (Tauri 2, Svelte 5, CodeMirror, Rust core) | repository root: `src/`, `src-tauri/` |
+| The archived React frontend from 0.4.0 | this directory: `react-src/` |
 | The native eframe/egui rewrite from 0.3.0 | [`native/`](../../native) |
 | How the two relate, component by component | [MIGRATION.md](MIGRATION.md) |
 | Legacy documentation for the archived snapshot | the root `docs/` folder, restored with the app |

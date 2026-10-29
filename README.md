@@ -7,25 +7,34 @@ A desktop notes app that keeps everything on your own machine, encrypted with yo
 
 ## What it is
 
+> **Interface status (0.4 development).** The React frontend has been retired and replaced by a
+> native-speed **Svelte 5 + TypeScript** interface. The Rust document engine, encrypted profiles and
+> file formats are unchanged. The new shell covers writing, the explorer, tabs, search, the graph,
+> tasks, history and plugin management; the AI, canvas, automation and collection panels from the
+> previous UI are not yet ported and are tracked in [FEATURES.md](FEATURES.md). The old frontend is
+> archived under `deprecated/tauri-ui/`.
+
 NoteCraft is a Markdown knowledge base for people who want their notes to stay put:
 
 - **Local profiles.** Every username is a separate vault in this app's data folder.
 - **Encrypted at rest.** Notes are sealed with ChaCha20-Poly1305 using a key derived from your
   password with Argon2id. The password is never written to disk.
-- **Fast editing.** CodeMirror 6 with source, live-preview, reading and split modes.
+- **Fast editing.** CodeMirror 6 with source, live-preview, reading and split modes, plus a
+  dedicated structured JSON view and source view for other formats.
 - **One Rust document engine.** Markdown, MDX and JSON are rendered by NoteCraft's own Rust
-  engine — no third-party Markdown parser. JSON becomes a readable outline; MDX components are
+  engine — no third-party Markdown parser. JSON becomes a readable tree; MDX components are
   surfaced instead of mangled.
 - **Real exports.** Markdown, standalone HTML, and print / save-as-PDF from the editor menu.
 - **Real links.** `[[wiki links]]`, backlinks, tags, unlinked mentions and a graph view.
-- **Workflow built in.** Tasks with due dates, daily notes, quick capture, templates,
-  saved searches, snapshots with diff and restore, canvas boards and automations.
-- **Built-in AI assistant.** A right-rail agent with provider logos for DeepSeek, Gemini,
-  Mistral, OpenAI, OpenRouter, Groq and three local runtimes (Ollama, LM Studio, llama.cpp).
-  It can read, search and create notes, and every edit arrives as a diff with Accept/Reject.
-- **Plugins you can drop in.** Install a `.zip` containing `plugin.json`, a JavaScript entry,
-  optional CSS and an icon. No store account, no downloads behind your back.
+- **Workflow built in.** Tasks with due dates, daily notes, quick capture, version snapshots,
+  favorites, full-text search and a command palette.
+- **Plugin management.** Enable, disable, install and uninstall plugins from Settings. The
+  sandboxed runtime is still being ported to the new interface.
 - **A CLI for agents.** `notecraft-cli` reads and writes the same vaults from a terminal.
+
+The Rust backend still contains the AI assistant, canvas, automations and collection views from
+earlier releases. Their commands remain available, but the Svelte shell does not expose them yet;
+see [FEATURES.md](FEATURES.md) for the current, itemised status.
 
 No account, no server, no telemetry. Nothing leaves the machine unless you point a sync folder at it.
 
@@ -56,16 +65,12 @@ in that profile cannot be decrypted. Export anything you cannot afford to lose.
 
 `Ctrl+Shift+L` locks the app. Locking drops the key from memory; the vault stays on disk.
 
-## AI and plugins
+## Plugins
 
-Open the sparkle button in the right rail, pick a provider and paste its key. Keys are kept
-encrypted with your profile and used from the Rust core, never from the page. Local providers
-need no key — start Ollama, LM Studio or `llama-server` first. See
-[docs/AI.md](docs/AI.md) for the tool list and approval flow.
-
-Plugins are installed from **Settings → Plugins → Choose file…** (or by dropping a `.zip` on
-that card). The package format and runtime API are documented in
-[docs/PLUGINS.md](docs/PLUGINS.md).
+Open **Settings → Plugins** to enable, disable or uninstall an installed plugin. The plugin
+package format and runtime API are documented in [docs/PLUGINS.md](docs/PLUGINS.md). Plugin
+JavaScript execution is intentionally not loaded by the redesigned shell yet; the manager itself
+is functional and operates on the same plugin files as before.
 
 ## Getting around
 
@@ -77,7 +82,9 @@ that card). The package format and runtime API are documented in
 | Daily note | `Ctrl+Alt+N` |
 | Quick capture | `Ctrl+Shift+N` |
 | Save now | `Ctrl+S` |
-| Search everything | `Ctrl+Shift+F` |
+| Find in file | `Ctrl+F` |
+| Close tab | `Ctrl+W` |
+| Settings | `Ctrl+,` |
 | Toggle sidebar / context panel | `Ctrl+B` / `Ctrl+\` |
 | Focus mode | `Ctrl+Shift+F` |
 | Switch theme | `Ctrl+Shift+D` |

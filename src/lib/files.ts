@@ -1,6 +1,17 @@
 import type { FileEntry } from "./types";
 import { ensureDocumentName, extensionOf, hasDocumentExtension } from "./documentTypes";
 
+/**
+ * Name a renamed file without losing its format. An explicit extension the
+ * user typed always wins (including formats NoteCraft does not render), and a
+ * name without one inherits the original file's extension instead of `.md`.
+ */
+export function renamedFileName(name: string, originalPath: string): string {
+  const typed = name.trim().replace(/[\\/]+/g, "-");
+  if (/\.[A-Za-z0-9]+$/.test(typed)) return typed;
+  return extensionOf(originalPath) ? `${typed}.${extensionOf(originalPath)}` : typed;
+}
+
 export function normalizeRel(path: string): string {
   // Vault-relative paths always use forward slashes. Collapse duplicate
   // separators and `.` segments so `./notes//a.md` and `notes/a.md` are the

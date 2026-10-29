@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased — Svelte interface
+
+### Changed
+- **The React frontend was replaced by Svelte 5 + TypeScript.** The Tauri/Rust backend, document
+  format registry, encrypted profiles and vault layout are untouched. The old frontend is archived
+  under `deprecated/tauri-ui/react-src/`.
+- **New design system and shell.** Centralised CSS tokens, dark and light themes, a native-style
+  menu bar, resizable explorer and context panels, multi-tab workspace, command palette, quick
+  switcher, settings, profiles and a document-aware status bar.
+- **Editor workspace.** CodeMirror 6 keeps per-tab undo state across switches, with source, live,
+  reading and split modes, a structured JSON tree, source views for other formats, autosave and
+  conflict-safe writes (`write_file_if_unchanged`).
+- **Context panel.** Outline, backlinks and unlinked mentions, tags/frontmatter, vault tasks and
+  version history are all wired to the existing Rust commands.
+- **Knowledge graph** now renders with a deterministic force layout in the new shell.
+
+### Removed from the visible UI (backend retained)
+- AI assistant, canvas boards, automations, collection/database views and third-party plugin
+  JavaScript execution are not exposed by the Svelte shell yet. Plugin management, the Rust
+  commands and the archived React implementation remain. See FEATURES.md.
+
 ## 0.4.0
 
 ### Changed

@@ -1,102 +1,68 @@
 import { describe, expect, it } from "vitest";
-import {
-  capabilitiesFor,
-  documentKind,
-  documentTemplate,
-  ensureDocumentName,
-  extensionOf,
-  hasDocumentExtension,
-  isProse,
-} from "./documentTypes";
-import { isDocument, stem, uniqueName } from "./files";
+import { capabilitiesFor, documentKind, ensureDocumentName, hasDocumentExtension } from "./documentTypes";
+import { renamedFileName, uniqueName } from "./files";
 
-describe("documentKind", () => {
-  it("detects every supported extension case-insensitively", () => {
-    expect(documentKind("notes/a.MD")).toBe("markdown");
-    expect(documentKind("notes/a.mdx")).toBe("mdx");
-    expect(documentKind("data/a.JSON")).toBe("json");
-    expect(documentKind("conf/a.yml")).toBe("yaml");
-    expect(documentKind("site/a.css")).toBe("css");
-    expect(documentKind("src/a.tsx")).toBe("typescript");
-    expect(documentKind("src/a.jsx")).toBe("javascript");
-    expect(documentKind("notes/a.txt")).toBe("plain-text");
+const entries = [
+  { path: "notes.mdx", name: "notes.mdx", is_dir: false, size: 10, modified: 0, extension: "mdx" },
+  { path: "data.json", name: "data.json", is_dir: false, size: 10, modified: 0, extension: "json" },
+  { path: "plain.txt", name: "plain.txt", is_dir: false, size: 10, modified: 0, extension: "txt" },
+];
+
+describe("document registry", () => {
+  it("maps supported extensions to their own kinds", () => {
+    expect(documentKind("a.mdx")).toBe("mdx");
+    expect(documentKind("a.json")).toBe("json");
+    expect(documentKind("a.yaml")).toBe("yaml");
+    expect(documentKind("a.ts")).toBe("typescript");
   });
 
-  it("treats unknown extensions as plain text, not Markdown", () => {
-    expect(documentKind("image.png")).toBe("plain-text");
-    expect(documentKind("README")).toBe("plain-text");
-    expect(hasDocumentExtension("image.png")).toBe(false);
+  it("never treats an unknown file as Markdown", () => {
+    expect(documentKind("archive.xyz")).toBe("plain-text");
+    expect(capabilitiesFor("archive.xyz").hasLinks).toBe(false);
   });
 
-  it("exposes capabilities per format", () => {
-    expect(capabilitiesFor("a.json").preview).toBe("json");
-    expect(capabilitiesFor("a.json").stats).toBe("data");
-    expect(capabilitiesFor("a.json").hasLinks).toBe(false);
-    expect(capabilitiesFor("a.md").stats).toBe("prose");
-    expect(capabilitiesFor("a.css").preview).toBe("source");
-  });
-
-  it("only prose formats treat wiki links as meaningful", () => {
-    expect(isProse("a.md")).toBe(true);
-    expect(isProse("a.mdx")).toBe(true);
-    expect(isProse("a.json")).toBe(false);
-  });
-});
-
-describe("file naming", () => {
-  it("keeps an explicit supported extension", () => {
+  it("keeps an explicit extension when creating a file", () => {
     expect(ensureDocumentName("page.mdx")).toBe("page.mdx");
-    expect(ensureDocumentName("data.json")).toBe("data.json");
-    expect(ensureDocumentName("conf.yml")).toBe("conf.yml");
+    expect(ensureDocumentName("schema.json")).toBe("schema.json");
+    expect(ensureDocumentName("config.yaml", "yaml")).toBe("config.yaml");
   });
 
-  it("adds .md only when no supported extension is given", () => {
-    expect(ensureDocumentName("Ideas")).toBe("Ideas.md");
-    expect(ensureDocumentName("Ideas", "json")).toBe("Ideas.json");
+  it("appends the fallback extension only when none is present", () => {
+    expect(ensureDocumentName("note", "markdown")).toBe("note.md");
+    expect(ensureDocumentName("data", "json")).toBe("data.json");
   });
 
-  it("does not double-append extensions when making names unique", () => {
-    const files = [
-      { path: "page.mdx", name: "page.mdx", is_dir: false, size: 0, modified: 0, extension: "mdx" },
-    ];
-    expect(uniqueName("page.mdx", files, "")).toBe("page 2.mdx");
-    expect(uniqueName("page.md", files, "")).toBe("page.md");
-  });
-
-  it("strips any supported extension when computing a stem", () => {
-    expect(stem("notes/page.mdx")).toBe("page");
-    expect(stem("data/report.json")).toBe("report");
-    expect(stem("src/main.tsx")).toBe("main");
-    expect(stem("no-extension")).toBe("no-extension");
-  });
-
-  it("recognises documents that are not Markdown", () => {
-    expect(isDocument("a.json")).toBe(true);
-    expect(isDocument("a.yml")).toBe(true);
-    expect(isDocument("a.png")).toBe(false);
-  });
-
-  it("reads the extension safely from nested and windows-style paths", () => {
-    expect(extensionOf("a/b/c.TXT")).toBe("txt");
-    expect(extensionOf("a\\b\\c.json")).toBe("json");
-    expect(extensionOf("noext")).toBe("");
+  it("recognises the supported extension set", () => {
+    expect(hasDocumentExtension("x.mdx")).toBe(true);
+    expect(hasDocumentExtension("x.xyz")).toBe(false);
   });
 });
 
-describe("documentTemplate", () => {
-  it("produces valid JSON for a new data file", () => {
-    const text = documentTemplate("json", "report");
-    expect(() => JSON.parse(text)).not.toThrow();
-    expect(JSON.parse(text).title).toBe("report");
+describe("renaming", () => {
+  it("keeps the original extension when none is typed", () => {
+    expect(renamedFileName("Project brief", "docs/brief.mdx")).toBe("Project brief.mdx");
+    expect(renamedFileName("schema", "data/schema.json")).toBe("schema.json");
   });
 
-  it("produces a heading for Markdown and MDX", () => {
-    expect(documentTemplate("markdown", "Ideas")).toBe("# Ideas\n\n");
-    expect(documentTemplate("mdx", "Page")).toBe("# Page\n\n");
+  it("preserves an explicit extension, including unknown formats", () => {
+    expect(renamedFileName("page.mdx", "page.mdx")).toBe("page.mdx");
+    expect(renamedFileName("archive.zip", "notes.txt")).toBe("archive.zip");
+    expect(renamedFileName("diagram.v2", "diagram.txt")).toBe("diagram.v2");
   });
 
-  it("escapes the stem inside JSON strings", () => {
-    const text = documentTemplate("json", 'a"b');
-    expect(() => JSON.parse(text)).not.toThrow();
+  it("does not invent an extension for an extensionless file", () => {
+    expect(renamedFileName("LICENSE", "LICENSE")).toBe("LICENSE");
+  });
+});
+
+describe("unique names", () => {
+  it("preserves a typed non-Markdown extension", () => {
+    expect(uniqueName("page.mdx", entries, "")).toBe("page.mdx");
+    expect(uniqueName("notes.mdx", entries, "")).toBe("notes 2.mdx");
+  });
+
+  it("keeps JSON files JSON and text files text when de-duplicating", () => {
+    expect(uniqueName("data.json", entries, "")).toBe("data 2.json");
+    expect(uniqueName("plain.txt", entries, "")).toBe("plain 2.txt");
   });
 });

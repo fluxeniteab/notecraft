@@ -1,8 +1,8 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import { defineConfig } from "vitest/config";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [svelte()],
   clearScreen: false,
   server: {
     port: 1420,
@@ -11,13 +11,14 @@ export default defineConfig({
   envPrefix: ["VITE_", "TAURI_"],
   build: {
     target: ["es2021", "chrome100", "safari13"],
-    minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
-    sourcemap: !!process.env.TAURI_DEBUG,
+    minify: "esbuild",
+    sourcemap: false,
   },
   test: {
     environment: "jsdom",
     globals: true,
-    setupFiles: ["./src/test/setup.ts"],
     css: true,
+    include: ["src/**/*.test.ts"],
+    exclude: ["node_modules", "deprecated", "native"],
   },
 });

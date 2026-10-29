@@ -1,52 +1,30 @@
-import { toast } from "sonner";
+import { askConfirm, pushToast } from "./state";
 import { isTauri } from "./theme";
 
-let checkInFlight = false;
-
 /**
- * Ask the Tauri updater whether a newer signed release exists.
- * Updates are signed with the project key, so a tampered download is rejected
- * before it can be installed.
+ * Check the signed release feed and, with consent, install the update.
+ * The updater plugin verifies the signature before anything is written.
  */
-export async function checkForUpdates(options: { silent?: boolean } = {}) {
-  if (!isTauri() || checkInFlight) return;
-  checkInFlight = true;
+export async function checkForUpdates(silent = true): Promise<void> {
+  if (!isTauri()) return;
   try {
-    const [{ check }, { relaunch }] = await Promise.all([
-      import("@tauri-apps/plugin-updater"),
-      import("@tauri-apps/plugin-process"),
-    ]);
+    const { check } = await import("@tauri-apps/plugin-updater");
     const update = await check();
     if (!update) {
-      if (!options.silent) {
-        toast.success("You are on the latest version of NoteCraft");
-      }
+      if (!silent) pushToast("success", "NoteCraft is up to date");
       return;
     }
-    toast(`NoteCraft ${update.version} is available`, {
-      description: update.body?.split("\n")[0] ?? "A new signed build is ready to install.",
-      duration: Infinity,
-      action: {
-        label: "Install and restart",
-        onClick: async () => {
-          try {
-            toast.loading("Downloading the update…", { id: "notecraft-update" });
-            await update.downloadAndInstall();
-            toast.success("Update installed", { id: "notecraft-update" });
-            await relaunch();
-          } catch (error) {
-            toast.error("Update failed", { id: "notecraft-update", description: String(error) });
-          }
-        },
-      },
+    const accepted = await askConfirm({
+      title: `NoteCraft ${update.version} is available`,
+      description: update.body?.slice(0, 500) || "A signed update is ready to install.",
+      confirmLabel: "Download and install",
     });
+    if (!accepted) return;
+    pushToast("info", "Downloading update", "NoteCraft will restart when the update is ready.");
+    await update.downloadAndInstall();
+    const { relaunch } = await import("@tauri-apps/plugin-process");
+    await relaunch();
   } catch (error) {
-    // Offline or a release without an update manifest: not worth a toast unless
-    // the user asked for a check.
-    if (!options.silent) {
-      toast.error("Could not check for updates", { description: String(error) });
-    }
-  } finally {
-    checkInFlight = false;
+    if (!silent) pushToast("error", "Could not check for updates", String(error));
   }
 }

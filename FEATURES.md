@@ -2,6 +2,12 @@
 
 Legend: [x] implemented & tested, [~] partial, [ ] planned
 
+> **Svelte interface status.** The frontend was rebuilt in Svelte 5 + TypeScript. The Rust
+> document engine, profiles, vaults and file formats are unchanged and covered below. Panels that
+> are marked **archived UI only** still exist in the Rust backend and in the archived React UI
+> under `deprecated/tauri-ui/`, but the new shell does not expose them yet. They are not claimed
+> as working in the shipped UI.
+
 ## Document engine
 - [x] Own Rust renderer for Markdown (no third-party Markdown parser)
 - [x] Explicit document-format registry (`doc_types.rs` + `documentTypes.ts`): kind, editor language, preview mode, statistics mode and validator per extension
@@ -21,7 +27,10 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 - [x] Preview HTML escapes all user text and is sanitised again before insertion
 - [x] `render_document` command dispatches on the file extension; never silently falls back to Markdown
 
-## AI assistant (0.2.1)
+## AI assistant (0.2.1) — backend retained, no Svelte panel yet
+
+> The commands and encrypted key storage exist in Rust. The redesigned shell does not include
+> the chat panel, so this section documents the backend/archived UI only.
 - [x] Provider presets: DeepSeek, Google Gemini, Mistral, OpenAI, OpenRouter, Groq
 - [x] Local runtimes: Ollama, LM Studio, llama.cpp (no API key)
 - [x] Inline SVG mark for every provider, in the panel and the setup grid
@@ -33,7 +42,10 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 - [x] Eight-step tool loop cap and a new-conversation reset
 - [ ] Streaming token output (responses arrive complete)
 
-## Plugin packages (0.2.1)
+## Plugin packages (0.2.1) — manager ported, runtime not loaded yet
+
+> Settings can list, enable, disable, install and uninstall plugins. The new shell does not load
+> plugin JavaScript into the page, so third-party UI extensions do not run yet.
 - [x] Drag-and-drop or file-picker install of `plugin_xyz.zip`
 - [x] Manifest validation (`plugin.json`), id/folder sanitisation, zip-slip guard
 - [x] Optional `style.css` injected, optional `icon.png`/SVG shown in settings
@@ -125,18 +137,22 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 - [x] Graph zoom/pan/select
 - [x] Incremental graph updates (rebuild on link rebuild)
 
-## Canvas
-- [x] Infinite workspace (React Flow)
-- [x] Pan/zoom/select/drag/connect
-- [x] Node types (default cards)
-- [x] Multi-select/grouping (React Flow)
-- [x] Undo/redo (React Flow)
-- [x] Minimap, fit-to-content
-- [x] Copy/paste (React Flow)
-- [x] Save/restore (file)
+## Canvas — archived UI only
+- [~] Infinite workspace (archived React Flow implementation)
+- [~] Pan/zoom/select/drag/connect
+- [~] Node types (default cards)
+- [~] Multi-select/grouping
+- [~] Undo/redo
+- [~] Minimap, fit-to-content
+- [~] Copy/paste
+- [~] Save/restore (file)
 - [ ] Link node to note (not yet)
+- [ ] Svelte canvas view (not ported)
 
-## Tags, properties, templates, views
+## Tags, properties, templates, views — note views are archived UI only
+
+> The new shell shows tags and frontmatter properties for the open document. Collections and
+> saved database-style views are not ported yet.
 - [x] Tags (parsed, stored)
 - [x] Nested tags (grouped under top-level parent in the tags panel)
 - [x] Tag rename (rewrites occurrences, rebuilds index)
@@ -207,6 +223,8 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 - [ ] Per-workspace settings
 
 ## Plugins
+- [x] Plugin manager in Settings (list, enable, disable, install, uninstall)
+- [ ] Plugin JavaScript runtime in the Svelte shell (intentionally disabled until sandboxed)
 - [x] Manifest model
 - [x] Registry (db)
 - [x] Enable/disable/uninstall
@@ -215,7 +233,7 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 - [x] API docs (docs/PLUGIN_API.md)
 - [x] Marketplace interface (shipped catalog in Settings; embedded fallback for packaged builds)
 
-## Automation
+## Automation — backend retained, no Svelte panel yet
 - [x] Rule model (db)
 - [x] Save/delete/list
 - [x] Dry-run preview
@@ -253,7 +271,8 @@ Legend: [x] implemented & tested, [~] partial, [ ] planned
 
 ## Testing
 - [x] Rust unit tests (vault, markdown, metadata, graph, links, settings)
-- [x] Frontend tests (appStore)
+- [x] Frontend tests (vitest: document registry, rename/extension preservation, explorer tree)
+- [ ] Frontend tests for tab saving and conflict handling (planned)
 - [ ] Integration/e2e (not yet)
 
 ## Build/CI

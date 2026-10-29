@@ -7,7 +7,26 @@ phases depend on earlier ones being green.
 
 ---
 
+## Current frontend (supersedes the original React plan below)
+
+The shipped interface is **Svelte 5 + TypeScript** built with Vite. There is no Tailwind, Radix or
+React in the app. Styling is a hand-written token system in `src/app.css`; CodeMirror 6 provides the
+editor. The archived React UI is kept under `deprecated/tauri-ui/` for reference only and is not
+built. Commands:
+
+```bash
+bun install
+bun run dev        # Vite at http://localhost:1420
+bun run typecheck  # svelte-check
+bun run test       # vitest
+bun run build      # svelte-check + production bundle
+bun run tauri dev
+```
+
 ## Phase 1 — Foundation & Shell (Tauri + React + Rust core)
+
+> Historical plan. The shell described here was implemented in React in 0.4.0 and has since been
+> replaced by the Svelte interface above; the Rust commands are unchanged.
 
 Goal: A launchable Tauri 2 desktop app with a real React shell wired to a real Rust backend,
 vault file operations, Markdown parsing, and a working editor.
