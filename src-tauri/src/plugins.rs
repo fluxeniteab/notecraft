@@ -214,7 +214,9 @@ pub fn import_zip(path: &str, state: &State<AppState>) -> AppResult<PluginInfo> 
     let mut manifest_text = String::new();
     {
         use std::io::Read;
-        let mut entry = archive.by_name(&manifest_name).map_err(AppError::Io)?;
+        let mut entry = archive
+            .by_name(&manifest_name)
+            .map_err(|e| AppError::Invalid(format!("could not read the manifest: {e}")))?;
         entry
             .read_to_string(&mut manifest_text)
             .map_err(AppError::Io)?;
@@ -276,7 +278,9 @@ pub fn import_zip(path: &str, state: &State<AppState>) -> AppResult<PluginInfo> 
     std::fs::create_dir_all(&dir).map_err(AppError::Io)?;
 
     for index in 0..archive.len() {
-        let mut entry = archive.by_index(index).map_err(AppError::Io)?;
+        let mut entry = archive
+            .by_index(index)
+            .map_err(|e| AppError::Invalid(format!("could not read the zip: {e}")))?;
         let rel = match entry.enclosed_name() {
             Some(rel) => rel.to_path_buf(),
             None => continue,
